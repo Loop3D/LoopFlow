@@ -1,0 +1,35 @@
+GOCAD TSurf 1 
+HEADER {
+name: 2_Gairdner_Dyke_Surface_Final
+*solid*color: #006400
+ivolmap: false
+imap: false
+parts: false
+atoms: false
+}
+GOCAD_ORIGINAL_COORDINATE_SYSTEM
+NAME Default
+PROJECTION Unknown
+DATUM Unknown
+AXIS_NAME X Y Z
+AXIS_UNIT m m m
+ZPOSITIVE Elevation
+END_ORIGINAL_COORDINATE_SYSTEM
+PROPERTY_CLASS_HEADER X {
+kind: X
+unit: m
+}
+PROPERTY_CLASS_HEADER Y {
+kind: Y
+unit: m
+}
+PROPERTY_CLASS_HEADER Z {
+kind: Z
+unit: m
+is_z: on
+}
+PROPERTY_CLASS_HEADER vector3d {
+kind: Length
+unit: m
+pclip: 99
+}

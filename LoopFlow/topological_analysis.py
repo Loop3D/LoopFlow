@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon 30/05/2022
+Updated on Mon 05/08/2022
 
 Comptutation of the topological graph from regular grid voxets of geological models 
 and associated fault topology matrix. 
@@ -10,12 +10,13 @@ Identify edges between adjacent nodes (contact on a voxel face (in the 3D case)
 
 @author: Guillaume PIROT
 """
-__version__="0.1.13"
+__version__="0.1.15"
 
 import numpy as np
 import pandas as pd
 import networkx as nx
 import sys
+import os
 from datetime import datetime
 
 # INPUT VARIABLES
@@ -51,7 +52,7 @@ mem_factor = 1E6
 # df_edges: graph edges described as a dataframe
 # G: graph built with networkx  
 
-def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,memory_limGB=None,verb=False):
+def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=True,simplify=True,verb=False):
     print('Running topological_analysis version '+ __version__)
     dim = nd_lithocodes.shape
     ndim=len(dim)
@@ -173,9 +174,16 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
             # INTERFORMATION NODES
             new_node_id = np.arange(cur_node_id,cur_node_id+len(ixin))
             df_tmp = pd.DataFrame({'id':new_node_id,'X':tmpX[ixin],'Y':tmpY[ixin],'Z':tmpZ[ixin]})
-            df_tmp['geocode'] = 'inter-geol_'+(df_nodes.loc[tmpID1[ixin],'geocode'].astype(str)).values +'-geol_'+(df_nodes.loc[tmpID2[ixin],'geocode'].astype(str)).values
+            geocode_pair = np.zeros((len(ixin),2)).astype(int)
+            geocode_pair[:,0]=df_nodes.loc[tmpID1[ixin],'geocode'].values
+            geocode_pair[:,1]=df_nodes.loc[tmpID2[ixin],'geocode'].values
+            geocode_pair = np.sort(geocode_pair,axis=1)
+            df_pair = pd.DataFrame(geocode_pair)
+            df_tmp['geocode'] = 'inter-geol_'+(df_pair.iloc[:,0]).astype(str) +'-geol_'+(df_pair.iloc[:,1]).astype(str)
             df_tmp['description'] = 'interformation node'
             df_tmp['orthodim'] = d
+            df_tmp['interform_geocode_a'] = geocode_pair[:,0]
+            df_tmp['interform_geocode_b'] = geocode_pair[:,1] 
             cur_node_id = cur_node_id+len(ixin)
             df_nodes= pd.concat([df_nodes,df_tmp])
             df_nodes.reset_index(drop=True, inplace=True)
@@ -448,12 +456,15 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
         df_edges = add_new_edges(tmp0b,tmp1a,df_edges,verb=verb,suffix="DIM1 DIM2 INTERNODE EDGES 3/4")
         df_edges = add_new_edges(tmp0b,tmp1b,df_edges,verb=verb,suffix="DIM1 DIM2 INTERNODE EDGES 4/4")
     else:
-        if verb: print("NO INTERNODE DIM1 - INTERNODE DIM2 EDGES")        
+        if verb: print("NO INTERNODE DIM1 - INTERNODE DIM2 EDGES")
+           
     # IDENTIFY NODES WITHOUT EDGES AND IF NODES WITH SAME COORDINATES EXIST ??
-    # REMOVE EVENTUAL DUPICATES
-    if verb==True:
-        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - REMOVE DUPLICATE edges') 
-    df_edges.drop_duplicates(subset=['id_node_src','id_node_tgt'], keep='first', inplace=True)
+    # REMOVE EVENTUAL DUPICATE EDGES
+    if unique_edges == True:
+        if verb==True:
+            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - REMOVE DUPLICATE edges') 
+        df_edges.drop_duplicates(subset=['id_node_src','id_node_tgt'], keep='first', inplace=True)
+    
     # EDGE LABELS
     df_edges.reset_index(drop=True, inplace=True)
     ed_ix2label = np.asarray(np.where(df_edges["type"].isna())).flatten()
@@ -475,7 +486,19 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     df_edges.loc[ed_ix2label[ix_si],"type"] = 'same-interform'
     df_edges.loc[ed_ix2label[ix_ii],"type"] = 'interform-interform'
 
-
+    # REMOVE INTERFORM-INTERFORM EDGES THAT DO NOT SHARE A COMMON GEOLOGICAL CODE
+    df_edges.reset_index(drop=True, inplace=True)
+    ix_interforminterform = np.asarray(np.where(df_edges['type']=='interform-interform')).flatten()
+    df_interforminterform = df_edges.loc[ix_interforminterform,['id_node_src','id_node_tgt']].copy()
+    ix_node_src = np.asarray(df_interforminterform['id_node_src'].values.astype(int)).flatten()   
+    tmp_src = np.asarray(df_nodes.loc[ix_node_src,['interform_geocode_a','interform_geocode_b']].values).astype(int)
+    ix_node_tgt = np.asarray(df_interforminterform['id_node_tgt'].values.astype(int)).flatten()
+    tmp_tgt = np.asarray(df_nodes.loc[ix_node_tgt,['interform_geocode_a','interform_geocode_b']].values).astype(int)
+    no_common_geol = ((tmp_src[:,0]-tmp_tgt[:,0])*(tmp_src[:,0]-tmp_tgt[:,1])*(tmp_src[:,1]-tmp_tgt[:,0])*(tmp_src[:,1]-tmp_tgt[:,1]))!=0
+    ix2drop = np.where(no_common_geol==True)
+    df_edges.drop(ix_interforminterform[ix2drop],inplace=True)
+    df_edges.reset_index(drop=True, inplace=True)
+    
     # duplicate edges for non-oriented graph
     if verb==True:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BIDIRECTIONAL edges') 
@@ -507,8 +530,8 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     df_edges['length'] = np.sqrt((df_edges['vx'].values)**2 +
                                   (df_edges['vy'].values)**2 +
                                   (df_edges['vz'].values)**2 )
-    simplify=False
-    if(simplify):
+
+    if simplify==True:
         # Simplify geol feature connections
         if verb==True:
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY FAULT-FAULT edges') 
@@ -570,7 +593,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
                 ix2drop = np.concatenate((ix2drop,ix2droptmp))
             df_edges.drop(ixtmp[ix2drop],inplace=True)
         del df_tmp,ixtmp
-
+    
         
         # Simplify geol feature connections
         if verb==True:
@@ -602,8 +625,11 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
                 ix2drop = np.concatenate((ix2drop,ix2droptmp))
             df_edges.drop(ixtmp[ix2drop],inplace=True)
         del df_tmp,ixtmp
+        # END OF SIMPLIFICATION
   
-    
+    # remove columns from node dataframe
+    df_nodes.drop(axis=1,columns=['interform_geocode_a','interform_geocode_b'],inplace=True)
+  
     # reset edges index
     df_edges.sort_values(by=['id_node_src','id_node_tgt'], axis=0, ascending=True, inplace=True)
     df_edges.reset_index(drop=True, inplace=True)
@@ -621,8 +647,44 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 # Memory profiling https://github.com/spyder-ide/spyder-memory-profiler 
 # Add a @profile decorator to the functions that you wish to profile then Ctrl+Shift+F10 to run the profiler on the current script, or go to Run > Profile memory line by line.
 # @profile
-def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",verb=False,csvxpt=False):
-    df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,verb=verb)
+def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",unique_edges=True,simplify=True,verb=False,csvxpt=False):
+    """"Conversion of a regular grid voxet into a graph
+
+    Parameters
+    ----------
+    nd_X : numpy.ndarray of floats 
+        flattened array of the regular grid x-coordinates voxet
+    nd_Y : numpy.ndarray of floats
+        flattened array of the regular grid y-coordinates voxet
+    nd_Z : numpy.ndarray of floats
+        flattened array of the regular grid z-coordinates voxet
+    nd_lithocodes : numpy.ndarray of integers
+        flattened array of the regular grid lithocodes voxet
+    nd_topo_faults : numpy.ndarray of integers
+        2D array of the fault topology matrices of shape (len(nd_X),nfaults), with nfaults as the number of faults
+    fault_names : list of strings
+        fault names list of length nfaults
+    destination : 
+        destination folder to save 'model-graph.gml'
+    unique_edges : bool
+        optional boolean True (default) or False - remove duplicate (src-tgt) edges
+    simplify : bool
+        optional boolean True (default) or False - simplify edges when several edges connect one node to several other of the same entity, keeps the one with the shortest distance
+    verb : bool
+        optional boolean True or False (default) - verbose - print what it is doing 
+    csvxpt : bool
+        optional boolean True or False (default) - export node and edges dataframe to .csv files in the destination folder   
+
+    Returns
+    -------
+    G : DiGraph
+        networkx graph
+    df_nodes : DataFrame
+        pandas Dataframe listing the graph nodes
+    df_edges : DataFrame
+        pandas Dataframe listing the graph edges
+    """
+    df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=unique_edges,simplify=simplify,verb=verb)
     if verb==True:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BUILDING GRAPH')
     G = nx.from_pandas_edgelist(df_edges, source='id_node_src', target='id_node_tgt', edge_attr=True,create_using=nx.DiGraph())    #,create_using=nx.DiGraph()
@@ -637,6 +699,8 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         G.nodes[row['id']]['orthodim'] = row['orthodim']
     # Write outputs
     if ((isinstance(destination, str)) & (destination!="")):
+        if os.path.isdir(destination)==False:
+            os.mkdir(destination)
         if verb==True:
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EXPORTING GML GRAPH')
         nx.write_gml(G, destination+"/model-graph.gml")

@@ -54,7 +54,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
         fault_names.append("fault"+str(f)) 
     
 
-    Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,verb=True,csvxpt=True) #,destination
+    Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=True,csvxpt=True) #,destination
     return(Graw,df_nodes_raw,df_edges_raw)
 
 def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):

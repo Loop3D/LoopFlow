@@ -230,12 +230,12 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         G=add_side_node(G,-1,bbox2,1000,source,faults_only)
 
    
-    #if(target=='deep_line'):
-    #    G=add_deep_line_node(G,-2,minx,maxx,minz,1000,faults_only)
-    #elif(target=='point'):
-    #    add_point_node(G,-2,px,py,pz,1000,faults_only)
-    #else:
-    #    G=add_side_node(G,-2,bbox2,1000,target,faults_only)
+    if(target=='deep_line'):
+        G=add_deep_line_node(G,-2,minx,maxx,minz,1000,faults_only)
+    elif(target=='point'):
+        add_point_node(G,-2,px,py,pz,1000,faults_only)
+    else:
+        G=add_side_node(G,-2,bbox2,1000,target,faults_only)
   
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)
@@ -552,8 +552,7 @@ def save_nodes(df_nodes,scenario,destination):
     df_nodes.to_csv(destination+'/'+scenario+'_test-nodes.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES SAVED')
 
-
-def save_edges(df_nodes,df_edges,scenario,destination):
+def located_edges(df_nodes,df_edges,scenario,destination):
     df_edges_test=df_edges.copy()
     node_src=df_edges['id_node_src']
     node_tgt=df_edges['id_node_tgt']
@@ -567,6 +566,12 @@ def save_edges(df_nodes,df_edges,scenario,destination):
     df_edges_test['Y']=(Y1.values+Y2.values)/2
     df_edges_test['Z']=(Z1.values+Z2.values)/2
 
+    return(df_edges_test)
+
+
+def save_edges(df_nodes,df_edges,scenario,destination):
+    
+    df_edges_test=located_edges(df_nodes,df_edges,scenario,destination)
     df_edges_test.to_csv(destination+'/'+scenario+'_edges.csv',index=False)
 
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES SAVED')
@@ -619,12 +624,20 @@ def merge_outputs(voxet_df,df_nodes,scenery,scenario,destination):
     all_nodes.to_csv(destination+'/'+scenario+'_combined.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - OUTPUTS COMBINED')
 
-def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,scenario,destination):
+def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,scenario,destination):
     R = boykov_kolmogorov(G, source, target,capacity='capacity')
 
+    df_edges_test=located_edges(df_nodes_raw,df_edges_raw,scenario,destination)
+
     R_edges=nx.to_pandas_edgelist(R)
-    G_edges=nx.to_pandas_edgelist(G)
-    G_edges2=G_edges.join(R_edges,rsuffix='_r').rename(columns={'source_r':'id_node_src','target_r':'id_node_tgt'})
-    G_edges2=G_edges2[G_edges2['id_node_src']!=-1]
-    G_edges2=G_edges2[G_edges2['id_node_tgt']!=-1]
-    save_edges(df_nodes_raw,G_edges2,scenario+'_bk',destination)
+    R_edges['flow']=R_edges['flow'].abs()
+    R_edges=R_edges[R_edges.source<R_edges.target]
+    R_edges=R_edges.sort_values(['source', 'target'], ascending=[True, True])
+    df_edges_test=df_edges_test.sort_values(['id_node_src', 'id_node_tgt'], ascending=[True, True])
+
+    new_df = pd.merge(df_edges_test, R_edges,  how='left', left_on=['id_node_src','id_node_tgt'], right_on = ['source','target'])
+
+    new_df[(~new_df.source.isna())&(new_df.source<new_df.target) ]
+
+    new_df.to_csv(destination+'/edges_bk.csv')
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BK_EDGES SAVED')

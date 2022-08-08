@@ -11,7 +11,6 @@ from networkx.algorithms.flow import boykov_kolmogorov
 def graph_from_model(model,voxel_size,bbox2,destination):  
     if(not os.path.isdir(destination)):
         os.mkdir(destination)
-    voxel_size=750
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
 

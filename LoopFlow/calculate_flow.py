@@ -5,6 +5,8 @@ import pandas as pd
 import networkx as nx
 import os
 from datetime import datetime
+from networkx.algorithms.flow import boykov_kolmogorov
+
 
 def graph_from_model(model,voxel_size,bbox2,destination):  
     if(not os.path.isdir(destination)):
@@ -53,11 +55,11 @@ def graph_from_model(model,voxel_size,bbox2,destination):
     for f in range(nbfaults):
         fault_names.append("fault"+str(f)) 
     
+    Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=False,csvxpt=True) #,destination
 
-    Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=True,csvxpt=True) #,destination
     return(Graw,df_nodes_raw,df_edges_raw)
 
-def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
+def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -80,7 +82,7 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
         interform_interform=1.0
         same_interform=5.0
 
-        fast_formation_code=8
+        fast_formation_code=fast_litho
     elif(scenario=='fast_strat_contacts'): # and slow faults
         fault_node=5.0
         geological_formation_slow=1.0
@@ -95,7 +97,7 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
         interform_interform=1.0
         same_interform=5.0
 
-        fast_formation_code=8
+        fast_formation_code=fast_litho
     elif(scenario=='fast_faults'): # and slow strat
         fault_node=1.0
         geological_formation_slow=5.0
@@ -110,22 +112,22 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
         interform_interform=5.0
         same_interform=5.0
 
-        fast_formation_code=8
+        fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_not_paths'): # and fast strat
-        fault_node=25.0
-        geological_formation_slow=5.0
+        fault_node=1000.0
+        geological_formation_slow=200.0
         geological_formation_fast=1.0
         interformation_node=1.0
 
-        fault_formation=25.0
-        same_fault=25.0
-        fault_fault=25.0
-        interform_fault=25.0
+        fault_formation=1000.0
+        same_fault=1000.0
+        fault_fault=1000.0
+        interform_fault=1000.0
         interform_formation=25.0
         interform_interform=25.0
         same_interform=25.0
 
-        fast_formation_code=4
+        fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_but_paths_and_fast_strat'):
         fault_node=5.0
         geological_formation_slow=1.0
@@ -140,8 +142,8 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
         interform_interform=1.0
         same_interform=5.0
 
-        fast_formation_code=8
-    else: # homogeneous
+        fast_formation_code=fast_litho
+    elif(scenario=="homogeneous"): # homogeneous
         fault_node=1.0
         geological_formation_slow=1.0
         geological_formation_fast=1.0
@@ -155,7 +157,24 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
         interform_interform=1.0
         same_interform=1.0
 
-        fast_formation_code=1
+        fast_formation_code=[-99]
+    else: # custom
+        fault_node=scenario['fault_node']
+        geological_formation_slow=scenario['geological_formation_slow']
+        geological_formation_fast=scenario['geological_formation_fast']
+        interformation_node=scenario['interformation_node']
+
+        interform_formation=scenario['interform_formation']
+        fault_formation=scenario['fault_formation']
+        same_fault=scenario['same_fault']
+        interform_fault=scenario['interform_fault']
+        fault_fault=scenario['fault_fault']
+        same_interform=scenario['same_interform']
+        interform_interform=scenario['interform_interform']
+
+        fast_formation_code=scenario['fast_formation_code']
+        scenario='custom'
+       
         
         
     length_scale_max=857.1428571428569
@@ -172,90 +191,117 @@ def assign_weights(Graw,scenario,source,faults_only,bbox2,px,py,pz):
             G.nodes[n]['weight']=5.0
     for e in G.edges:
         scale=G.edges[e]['length']/length_scale_max
-        scale=1
+        #scale=1
         if(G.edges[e]['type']=='fault-formation'):
             G.edges[e]['weight']=fault_formation*scale
+            G.edges[e]['capacity']=1/(fault_formation*scale)
         elif(G.edges[e]['type']=='same-fault'):
             G.edges[e]['weight']=same_fault*scale
+            G.edges[e]['capacity']=1/(same_fault*scale)
         elif(G.edges[e]['type']=='fault-fault'):
             G.edges[e]['weight']=fault_fault*scale
+            G.edges[e]['capacity']=1/(fault_fault*scale)
         elif(G.edges[e]['type']=='interform-fault'):
             G.edges[e]['weight']=interform_fault*scale
+            G.edges[e]['capacity']=1/(interform_fault*scale)
         elif(G.edges[e]['type']=='interform-formation'):
             G.edges[e]['weight']=interform_formation*scale
+            G.edges[e]['capacity']=1/(interform_formation*scale)
         elif(G.edges[e]['type']=='intra-formation'):
-            if(G.edges[e]['label']=='geol_'+str(fast_formation_code)):
+            if(G.edges[e]['label'].replace('geol_','') in fast_formation_code):
                 G.edges[e]['weight']=geological_formation_fast*scale
+                G.edges[e]['capacity']=1/(geological_formation_fast*scale)
             else:
                 G.edges[e]['weight']=geological_formation_slow*scale
+                G.edges[e]['capacity']=1/(geological_formation_slow*scale)
         elif(G.edges[e]['type']=='interform-interform'):
             G.edges[e]['weight']=interform_interform*scale
+            G.edges[e]['capacity']=1/(interform_interform*scale)
         elif(G.edges[e]['type']=='same-interform'):
             G.edges[e]['weight']=same_interform*scale
+            G.edges[e]['capacity']=1/(same_interform*scale)
 
 
-    if(source=='deep_line_source'):
-        G=add_deep_line_source(G,minx,maxx,minz,1000,faults_only)
+    if(source=='deep_line'):
+        G=add_deep_line_node(G,-1,minx,maxx,minz,1000,faults_only)
     elif(source=='point'):
-        add_point_source(G,minz,px,py,pz,1000,faults_only)
+        add_point_node(G,-1,px,py,pz,1000,faults_only)
     else:
-        G=add_side_source(G,bbox2,1000,source,faults_only)
-    
-    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
-    return(G)
+        G=add_side_node(G,-1,bbox2,1000,source,faults_only)
 
-def add_deep_line_source(G,minx,maxx,minz,range,faults_only):
+   
+    #if(target=='deep_line'):
+    #    G=add_deep_line_node(G,-2,minx,maxx,minz,1000,faults_only)
+    #elif(target=='point'):
+    #    add_point_node(G,-2,px,py,pz,1000,faults_only)
+    #else:
+    #    G=add_side_node(G,-2,bbox2,1000,target,faults_only)
+  
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
+    return(G,scenario)
+
+def add_deep_line_node(G,nodeid,minx,maxx,minz,range,faults_only):
+
     range_min=minx+((maxx-minx)/2)-range
     range_max=maxx+((maxx-minx)/2)+range
     print("range=",range)
     print("range_min=",range_min)
     print("range_max=",range_max)
 
-    G.add_node(-1)
-    G.nodes[-1]['label']='deep source'
-    G.nodes[-1]['X']= 0.0
-    G.nodes[-1]['Y']= 0.0
-    G.nodes[-1]['Z']= minz-1
-    G.nodes[-1]['geocode']= "deep source"
-    G.nodes[-1]['description']= "deep source"
-    G.nodes[-1]['orthodim']= 0
-    G.nodes[-1]['weight']= 1.0
+    G.add_node(nodeid)
+    if(nodeid==-1):
+        name='node source'
+    else:
+        name='node target'
+    G.nodes[nodeid]['label']=name
+    G.nodes[nodeid]['X']= 0
+    G.nodes[nodeid]['Y']= 0
+    G.nodes[nodeid]['Z']= 0
+    G.nodes[nodeid]['geocode']= name
+    G.nodes[nodeid]['description']= name
+    G.nodes[nodeid]['orthodim']= 0
+    G.nodes[nodeid]['weight']= 1.0
 
     for n in G.nodes():
-        if(G.nodes[n]['Z']<minz+100 and G.nodes[n]['X']<range_max and G.nodes[n]['X']>range_min  ):
-            if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
-                #print(n,G.nodes[n]['Z'])
-                G.add_edge(n,-1)
-                G.edges[n,-1]['type']= "deep source"
-                G.edges[n,-1]['label']= "deep source"
-                G.edges[n,-1]['geocode_src']= 0
-                G.edges[n,-1]['geocode_tgt']= 0
-                G.edges[n,-1]['vx']= 0.0
-                G.edges[n,-1]['vy']= 0.0
-                G.edges[n,-1]['vz']= 0.0
-                G.edges[n,-1]['length']= 0
-                G.edges[n,-1]['weight']= 0.1
-                G.add_edge(-1,n)
-                G.edges[-1,n]['type']= "deep source"
-                G.edges[-1,n]['label']= "deep source"
-                G.edges[-1,n]['geocode_src']= 0
-                G.edges[-1,n]['geocode_tgt']= 0
-                G.edges[-1,n]['vx']= 0.0
-                G.edges[-1,n]['vy']= 0.0
-                G.edges[-1,n]['vz']= 0.0
-                G.edges[-1,n]['length']= 0
-                G.edges[-1,n]['weight']= 0.1
-                #print('fault',range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],minz-1)
-            #else:
-                #print('not_fault',n,range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],depth_cutoff)
-        #else:
-            #if(G.nodes[n]['Z']<depth_cutoff):
-                #print('out of range',n,'X:',range_min,"<",G.nodes[n]['X'],"<",range_max,'Z',G.nodes[n]['Z'],depth_cutoff)
+        if(n >=0):
+            if(G.nodes[n]['Z']<minz+100 and G.nodes[n]['X']<range_max and G.nodes[n]['X']>range_min  ):
+                if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
+                    G=join_node(G,n,name,'deep')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - LINE SOURCE ADDED')
 
     return(G)
 
-def add_point_source(G,minz,x,y,z,range,faults_only):
+def join_node(G,n,name,type):
+    if(name=='node target'):
+        nodeid=-2
+        G.add_edge(n,nodeid)
+        G.edges[n,nodeid]['type']= type+" source"
+        G.edges[n,nodeid]['label']= type+" source"
+        G.edges[n,nodeid]['geocode_src']= 0
+        G.edges[n,nodeid]['geocode_tgt']= 0
+        G.edges[n,nodeid]['vx']= 0.0
+        G.edges[n,nodeid]['vy']= 0.0
+        G.edges[n,nodeid]['vz']= 0.0
+        G.edges[n,nodeid]['length']= 0
+        G.edges[n,nodeid]['weight']= 0.1
+        G.edges[n,nodeid]['capacity']= 100000
+    else:
+        nodeid=-1
+        G.add_edge(nodeid,n)
+        G.edges[nodeid,n]['type']= type+" source"
+        G.edges[nodeid,n]['label']= type+" source"
+        G.edges[nodeid,n]['geocode_src']= 0
+        G.edges[nodeid,n]['geocode_tgt']= 0
+        G.edges[nodeid,n]['vx']= 0.0
+        G.edges[nodeid,n]['vy']= 0.0
+        G.edges[nodeid,n]['vz']= 0.0
+        G.edges[nodeid,n]['length']= 0
+        G.edges[nodeid,n]['weight']= 0.1
+        G.edges[nodeid,n]['capacity']= 100000
+    return(G)
+
+def add_point_node(G,nodeid,x,y,z,range,faults_only):
+
     pt_xmin=x-range
     pt_xmax=x+range
     pt_ymin=y-range
@@ -264,52 +310,32 @@ def add_point_source(G,minz,x,y,z,range,faults_only):
     pt_zmax=z+range
 
 
-    G.add_node(-1)
-    G.nodes[-1]['label']='point source'
-    G.nodes[-1]['X']= 0.0
-    G.nodes[-1]['Y']= 0.0
-    G.nodes[-1]['Z']= minz-1
-    G.nodes[-1]['geocode']= "point source"
-    G.nodes[-1]['description']= "point source"
-    G.nodes[-1]['orthodim']= 0
-    G.nodes[-1]['weight']= 1.0
+    G.add_node(nodeid)
+    if(nodeid==-1):
+        name='node source'
+    else:
+        name='node target'
+    G.nodes[nodeid]['label']=name
+    G.nodes[nodeid]['X']= 0
+    G.nodes[nodeid]['Y']= 0
+    G.nodes[nodeid]['Z']= 0
+    G.nodes[nodeid]['geocode']= name
+    G.nodes[nodeid]['description']= name
+    G.nodes[nodeid]['orthodim']= 0
+    G.nodes[nodeid]['weight']= 1.0
 
     for n in G.nodes():
-        if(G.nodes[n]['X']<pt_xmax and G.nodes[n]['X']>pt_xmin and 
-           G.nodes[n]['Y']<pt_ymax and G.nodes[n]['Y']>pt_ymin and
-           G.nodes[n]['Z']<pt_zmax and G.nodes[n]['Z']>pt_zmin):
-            if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
-                #print(n,G.nodes[n]['Z'])
-                G.add_edge(n,-1)
-                G.edges[n,-1]['type']= "point source"
-                G.edges[n,-1]['label']= "point source"
-                G.edges[n,-1]['geocode_src']= 0
-                G.edges[n,-1]['geocode_tgt']= 0
-                G.edges[n,-1]['vx']= 0.0
-                G.edges[n,-1]['vy']= 0.0
-                G.edges[n,-1]['vz']= 0.0
-                G.edges[n,-1]['length']= 0
-                G.edges[n,-1]['weight']= 0.1
-                G.add_edge(-1,n)
-                G.edges[-1,n]['type']= "point source"
-                G.edges[-1,n]['label']= "point source"
-                G.edges[-1,n]['geocode_src']= 0
-                G.edges[-1,n]['geocode_tgt']= 0
-                G.edges[-1,n]['vx']= 0.0
-                G.edges[-1,n]['vy']= 0.0
-                G.edges[-1,n]['vz']= 0.0
-                G.edges[-1,n]['length']= 0
-                G.edges[-1,n]['weight']= 0.1
-                #print('fault',range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],minz-1)
-            #else:
-                #print('not_fault',n,range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],depth_cutoff)
-        #else:
-            #if(G.nodes[n]['Z']<depth_cutoff):
-                #print('out of range',n,'X:',range_min,"<",G.nodes[n]['X'],"<",range_max,'Z',G.nodes[n]['Z'],depth_cutoff)
+        if(n >=0):
+            if(G.nodes[n]['X']<pt_xmax and G.nodes[n]['X']>pt_xmin and 
+                G.nodes[n]['Y']<pt_ymax and G.nodes[n]['Y']>pt_ymin and
+                G.nodes[n]['Z']<pt_zmax and G.nodes[n]['Z']>pt_zmin):
+                    if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
+                        G=join_node(G,n,name,'point')
+
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - POINT SOURCE ADDED')
     return(G)
 
-def add_side_source(G,bbox2,range,side,faults_only):
+def add_side_node(G,nodeid,bbox2,range,side,faults_only):
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
     maxx=bbox2.iloc[0]['maxx']
@@ -341,58 +367,37 @@ def add_side_source(G,bbox2,range,side,faults_only):
     print("range_min=",range_min)
     print("range_max=",range_max)
 
-    G.add_node(-1)
-    G.nodes[-1]['label']='west source'
-    G.nodes[-1]['X']= 0.0
-    G.nodes[-1]['Y']= 0.0
-    G.nodes[-1]['Z']= minz-1
-    G.nodes[-1]['geocode']= "west source"
-    G.nodes[-1]['description']= "west source"
-    G.nodes[-1]['orthodim']= 0
-    G.nodes[-1]['weight']= 1.0
-    print('side',side)
-    for n in G.nodes():
-        in_range=False
-        if(side=='west' or side=='east' ):
-            if( G.nodes[n]['X']<=range_max and G.nodes[n]['X']>=range_min  ): 
-                in_range=True
-        elif(side=='north' or side=='south' ):
-            if( G.nodes[n]['Y']<=range_max and G.nodes[n]['Y']>=range_min  ): 
-                in_range=True
-        elif(side=='top' or side=='base' ):
-            if( G.nodes[n]['Z']<=range_max and G.nodes[n]['Z']>=range_min  ): 
-                in_range=True
+    G.add_node(nodeid)
+    if(nodeid==-1):
+        name='node source'
+    else:
+        name='node target'
+    G.nodes[nodeid]['label']=name
+    G.nodes[nodeid]['X']= 0.0
+    G.nodes[nodeid]['Y']= 0.0
+    G.nodes[nodeid]['Z']= 0.0
+    G.nodes[nodeid]['geocode']= name
+    G.nodes[nodeid]['description']= name
+    G.nodes[nodeid]['orthodim']= 0
+    G.nodes[nodeid]['weight']= 1.0
 
-        if(in_range):
-            if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
-                #print(n,G.nodes[n]['Z'])
-                G.add_edge(n,-1)
-                G.edges[n,-1]['type']= side+" source"
-                G.edges[n,-1]['label']= side+" source"
-                G.edges[n,-1]['geocode_src']= 0
-                G.edges[n,-1]['geocode_tgt']= 0
-                G.edges[n,-1]['vx']= 0.0
-                G.edges[n,-1]['vy']= 0.0
-                G.edges[n,-1]['vz']= 0.0
-                G.edges[n,-1]['length']= 0
-                G.edges[n,-1]['weight']= 0.1
-                G.add_edge(-1,n)
-                G.edges[-1,n]['type']= side+" source"
-                G.edges[-1,n]['label']= side+" source"
-                G.edges[-1,n]['geocode_src']= 0
-                G.edges[-1,n]['geocode_tgt']= 0
-                G.edges[-1,n]['vx']= 0.0
-                G.edges[-1,n]['vy']= 0.0
-                G.edges[-1,n]['vz']= 0.0
-                G.edges[-1,n]['length']= 0
-                G.edges[-1,n]['weight']= 0.1
-                #print('fault',range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],minz-1)
-            #else:
-                #print('not_fault',n,range_min,'X',G.nodes[n]['X'],range_max,'Z',G.nodes[n]['Z'],depth_cutoff)
-        #else:
-           
-            #print('out of range',n,'X:',range_min,"<",G.nodes[n]['X'],"<",range_max,'Z',G.nodes[n]['Z'])
-    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - '+side+' SOURCE ADDED')
+    for n in G.nodes():
+        if(n>=0):
+            in_range=False
+            if(side=='west' or side=='east' ):
+                if( G.nodes[n]['X']<=range_max and G.nodes[n]['X']>=range_min  ): 
+                    in_range=True
+            elif(side=='north' or side=='south' ):
+                if( G.nodes[n]['Y']<=range_max and G.nodes[n]['Y']>=range_min  ): 
+                    in_range=True
+            elif(side=='top' or side=='base' ):
+                if( G.nodes[n]['Z']<=range_max and G.nodes[n]['Z']>=range_min  ): 
+                    in_range=True
+
+            if(in_range):
+                if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
+                    G=join_node(G,n,name,'side')
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - '+side+' NODE ADDED')
     return(G)
 
     
@@ -404,11 +409,13 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
     def_src=pd.DataFrame(index=[-1],data={'id':-1,'X':0,'Y':0,'Z':minz-1,'geocode':'deep source','description':'deep source','orthodim':0})
     df_nodes=pd.concat([df_nodes,def_src])
 
+
     def func(u, v, d):
         node_u_wt = G.nodes[u].get("weight", 1)
         node_v_wt = G.nodes[v].get("weight", 1)
         edge_wt = d.get("weight", 1)
-        return node_u_wt / 2 + node_v_wt / 2 + edge_wt
+        return edge_wt
+        #return node_u_wt / 2 + node_v_wt / 2 + edge_wt
         
     X=0
     Y=0
@@ -433,7 +440,7 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
             voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
 
         voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
-        voxet_df[:-1].to_csv(destination+'/'+scenario+'_dist_voxet.csv')
+        voxet_df[:-2].to_csv(destination+'/'+scenario+'_dist_voxet.csv')
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
 
         return(voxet_df,distance,path)
@@ -489,7 +496,7 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
             node_lith[nodeid]={'type':'fault','label':int(nodeid),'litho1':int(split_geocode[2]),'litho2':int(split_geocode[4])}
 
     node_lith_df=pd.DataFrame.from_dict(node_lith,orient='index')
-    node_lith_df[:-1]        
+         
 
     first=True
     index=0
@@ -597,13 +604,27 @@ def merge_outputs(voxet_df,df_nodes,scenery,scenario,destination):
     all_nodes=voxet_df[:-1].merge(df_nodes[:-1],how='outer',left_index=True,right_index=True)
     all_nodes=all_nodes.merge(scenery,how='outer',left_index=True,right_index=True)
 
-    all_nodes=all_nodes.drop(['X_x', 'Y_x', 'Z_x', 'id_x', 'X_y',
+    drop_candidates=['X_x', 'Y_x', 'Z_x', 'id_x', 'X_y', 
            'Y_y', 'Z_y', 'geocode_y', 'description_y',
-           'orthodim_y', 'id_y'],axis=1)
-    if('lkey' in all_nodes.columns):
-            all_nodes=all_nodes.drop(['lkey', 'rkey'],axis=1)
+           'orthodim_y', 'id_y','lkey', 'rkey','lkey_x', 'rkey_y','count_y']
+    
+    for d in drop_candidates:
+        if d in all_nodes.columns:
+            all_nodes=all_nodes.drop([d],axis=1)
+    if 'count_x' in all_nodes.columns:
+            all_nodes=all_nodes.rename(columns={'count_x':'count'})
 
     all_nodes=all_nodes.rename(columns={'geocode_x':'geocode','description_x':'description', 'orthodim_x':'orthodim'})
     all_nodes['dist_inv']=1/all_nodes.dist.pow(0.5)
     all_nodes.to_csv(destination+'/'+scenario+'_combined.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - OUTPUTS COMBINED')
+
+def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,scenario,destination):
+    R = boykov_kolmogorov(G, source, target,capacity='capacity')
+
+    R_edges=nx.to_pandas_edgelist(R)
+    G_edges=nx.to_pandas_edgelist(G)
+    G_edges2=G_edges.join(R_edges,rsuffix='_r').rename(columns={'source_r':'id_node_src','target_r':'id_node_tgt'})
+    G_edges2=G_edges2[G_edges2['id_node_src']!=-1]
+    G_edges2=G_edges2[G_edges2['id_node_tgt']!=-1]
+    save_edges(df_nodes_raw,G_edges2,scenario+'_bk',destination)

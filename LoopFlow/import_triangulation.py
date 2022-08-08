@@ -150,11 +150,11 @@ def build_strat_surfaces(root_dir,tri_format):
 
     if(tri_format=='.obj'):
         fault_code='Fault_'
-        obj_path_dir='./leapfrog_layers/'
+        obj_path_dir=root_dir
         dem_word='dtm'
     else:
         fault_code=['fault_','Fault_']
-        obj_path_dir=root_dir+'tsurfs/'
+        obj_path_dir=root_dir
         dem_word='DEM'
         
         
@@ -365,7 +365,7 @@ def harmonise_data_for_manual_ls(contacts,orientations,formation_thickness,all_s
     fault_properties=fault_properties.set_index('Fault')
     fault_dimensions=fault_dimensions.sort_values(by='Fault')
     fault_dimensions=fault_dimensions.set_index('Fault')
-    fault_properties['major_axis']=fault_dimensions.HorizontalRadius*.85
+    fault_properties['major_axis']=fault_dimensions.HorizontalRadius*0.90
     fault_properties['intermediate_axis']=fault_dimensions.VerticalRadius
     fault_properties['minor_axis']=fault_dimensions.InfluenceDistance
     
@@ -374,10 +374,10 @@ def harmonise_data_for_manual_ls(contacts,orientations,formation_thickness,all_s
     fault_locations['val']=0
     fault_locations['coord']=0
     
-    basements = {'group number': [0,0], 'order': [5,1.5],'unit name':['basement','ubasement'],'group':['all_same','all_same'],'supergroup':['supergroup_0','supergroup_1']}
-    basements_df = pd.DataFrame(data=basements)
+    #basements = {'group number': [0,0], 'order': [5,1.5],'unit name':['basement','ubasement'],'group':['all_same','all_same'],'supergroup':['supergroup_0','supergroup_1']}
+    #basements_df = pd.DataFrame(data=basements)
     stratigraphic_order['order']=stratigraphic_order.index
-    stratigraphic_order=pd.concat([stratigraphic_order,basements_df])
+    #stratigraphic_order=pd.concat([stratigraphic_order,basements_df])
     stratigraphic_order=stratigraphic_order.sort_values(by='order')
     stratigraphic_order=stratigraphic_order.reset_index()
     stratigraphic_order['order']=stratigraphic_order.index
@@ -386,7 +386,7 @@ def harmonise_data_for_manual_ls(contacts,orientations,formation_thickness,all_s
 
 def import_triangles(root_dir,suffix,strat_contact_frac):
     contacts,orientations,raw_contacts,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,all_sorts,bbox,faulti=build_strat_surfaces(root_dir,suffix)
-    fault_contacts,fault_orientations,fault_dimensions,fault_displacements=process_dykes_as_faults(root_dir+'/tsurfs/',fault_contacts,fault_orientations,fault_dimensions,fault_displacements,faulti)
+    fault_contacts,fault_orientations,fault_dimensions,fault_displacements=process_dykes_as_faults(root_dir,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,faulti)
     all_sorts2,formation_thickness=calculate_formation_thickness(all_sorts)
     f_f_txt=calculate_ff_fsg_relationships(fault_dimensions)
     super_groups=create_supergroups()

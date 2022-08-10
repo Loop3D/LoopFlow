@@ -11,6 +11,7 @@ from networkx.algorithms.flow import boykov_kolmogorov
 def graph_from_model(model,voxel_size,bbox2,destination):  
     if(not os.path.isdir(destination)):
         os.mkdir(destination)
+
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
 
@@ -31,11 +32,6 @@ def graph_from_model(model,voxel_size,bbox2,destination):
     xxx, yyy, zzz = np.meshgrid(x, y, z, indexing='ij') # build mesh
     xyz = np.array([xxx.flatten(), yyy.flatten(), zzz.flatten()]).T # build array for LS lithocode evaluation function
     xyzLitho = model.evaluate_model(xyz,scale=True)
-    import pickle
-    with open(destination+'/xyzLitho.pickle', 'wb') as f:
-        pickle.dump(xyzLitho, f)
-    with open(destination+'/xyz.pickle', 'wb') as f:
-        pickle.dump(xyz, f)
     nd_lithocodes = np.reshape(xyzLitho,(nnx,nny,nnz))
     print('nnx,nny,nnz',nnx,nny,nnz)
     nd_X = np.reshape(xyz[:,0],(nnx,nny,nnz))
@@ -43,8 +39,15 @@ def graph_from_model(model,voxel_size,bbox2,destination):
     nd_Z = np.reshape(xyz[:,2],(nnx,nny,nnz))
 
     fault_topo_mat = calculate_fault_topology_matrix(model,xyz,scale=True)
-    with open(destination+'/fault_topo_mat.pickle', 'wb') as f:
-        pickle.dump(fault_topo_mat, f)
+    import pickle
+    save_pickle=False
+    if(save_pickle):
+        with open(destination+'/xyzLitho.pickle', 'wb') as f:
+            pickle.dump(xyzLitho, f)
+        with open(destination+'/xyz.pickle', 'wb') as f:
+            pickle.dump(xyz, f)
+        with open(destination+'/fault_topo_mat.pickle', 'wb') as f:
+            pickle.dump(fault_topo_mat, f)
 
     nbfaults = fault_topo_mat.shape[-1]
     nd_topo_faults = np.reshape(fault_topo_mat,(nnx,nny,nnz,nbfaults))
@@ -58,7 +61,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
 
     return(Graw,df_nodes_raw,df_edges_raw)
 
-def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz):
+def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,range):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -193,48 +196,48 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         #scale=1
         if(G.edges[e]['type']=='fault-formation'):
             G.edges[e]['weight']=fault_formation*scale
-            G.edges[e]['capacity']=1/(fault_formation*scale)
+            G.edges[e]['capacity']=1/fault_formation
         elif(G.edges[e]['type']=='same-fault'):
             G.edges[e]['weight']=same_fault*scale
-            G.edges[e]['capacity']=1/(same_fault*scale)
+            G.edges[e]['capacity']=1/same_fault
         elif(G.edges[e]['type']=='fault-fault'):
             G.edges[e]['weight']=fault_fault*scale
-            G.edges[e]['capacity']=1/(fault_fault*scale)
+            G.edges[e]['capacity']=1/fault_fault
         elif(G.edges[e]['type']=='interform-fault'):
             G.edges[e]['weight']=interform_fault*scale
-            G.edges[e]['capacity']=1/(interform_fault*scale)
+            G.edges[e]['capacity']=1/interform_fault
         elif(G.edges[e]['type']=='interform-formation'):
             G.edges[e]['weight']=interform_formation*scale
-            G.edges[e]['capacity']=1/(interform_formation*scale)
+            G.edges[e]['capacity']=1/interform_formation
         elif(G.edges[e]['type']=='intra-formation'):
             if(G.edges[e]['label'].replace('geol_','') in fast_formation_code):
                 G.edges[e]['weight']=geological_formation_fast*scale
-                G.edges[e]['capacity']=1/(geological_formation_fast*scale)
+                G.edges[e]['capacity']=1/geological_formation_fast
             else:
                 G.edges[e]['weight']=geological_formation_slow*scale
-                G.edges[e]['capacity']=1/(geological_formation_slow*scale)
+                G.edges[e]['capacity']=1/geological_formation_slow
         elif(G.edges[e]['type']=='interform-interform'):
             G.edges[e]['weight']=interform_interform*scale
-            G.edges[e]['capacity']=1/(interform_interform*scale)
+            G.edges[e]['capacity']=1/interform_interform
         elif(G.edges[e]['type']=='same-interform'):
             G.edges[e]['weight']=same_interform*scale
-            G.edges[e]['capacity']=1/(same_interform*scale)
+            G.edges[e]['capacity']=1/same_interform
 
 
     if(source=='deep_line'):
-        G=add_deep_line_node(G,-1,minx,maxx,minz,1000,faults_only)
+        G=add_deep_line_node(G,-1,minx,maxx,minz,range,faults_only)
     elif(source=='point'):
-        add_point_node(G,-1,px,py,pz,1000,faults_only)
+        add_point_node(G,-1,px,py,pz,range,faults_only)
     else:
-        G=add_side_node(G,-1,bbox2,1000,source,faults_only)
+        G=add_side_node(G,-1,bbox2,range,source,faults_only)
 
    
     if(target=='deep_line'):
-        G=add_deep_line_node(G,-2,minx,maxx,minz,1000,faults_only)
+        G=add_deep_line_node(G,-2,minx,maxx,minz,range,faults_only)
     elif(target=='point'):
-        add_point_node(G,-2,px,py,pz,1000,faults_only)
+        add_point_node(G,-2,px,py,pz,range,faults_only)
     else:
-        G=add_side_node(G,-2,bbox2,1000,target,faults_only)
+        G=add_side_node(G,-2,bbox2,range,target,faults_only)
   
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)
@@ -638,5 +641,5 @@ def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,scenario,de
 
     new_df[(~new_df.source.isna())&(new_df.source<new_df.target) ]
 
-    new_df.to_csv(destination+'/edges_bk.csv')
+    new_df.to_csv(destination+'/'+scenario+'_edges_bk.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BK_EDGES SAVED')

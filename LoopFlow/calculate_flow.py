@@ -226,21 +226,21 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 
 
     if(source=='deep_line'):
-        G=add_deep_line_node(G,-1,minx,maxx,minz,range,faults_only)
+        G=add_deep_line_node(G,-1,minx,maxx,minz,range*2,faults_only)
     elif(source=='point'):
-        add_point_node(G,-1,px,py,pz,range,faults_only)
+        add_point_node(G,-1,px,py,pz,range*2,faults_only)
     else:
-        G=add_side_node(G,-1,bbox2,range,source,faults_only)
+        G=add_side_node(G,-1,bbox2,range*2,source,faults_only)
 
    
     if(target=='deep_line'):
-        G=add_deep_line_node(G,-2,minx,maxx,minz,range,faults_only)
+        G=add_deep_line_node(G,-2,minx,maxx,minz,range*2,faults_only)
     elif(target=='point'):
-        add_point_node(G,-2,px,py,pz,range,faults_only)
+        add_point_node(G,-2,px,py,pz,range*2,faults_only)
     elif(target=='none'):
         pass
     else:
-        G=add_side_node(G,-2,bbox2,range,target,faults_only)
+        G=add_side_node(G,-2,bbox2,range*2,target,faults_only)
   
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)

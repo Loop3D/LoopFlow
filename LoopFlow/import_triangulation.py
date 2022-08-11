@@ -135,7 +135,7 @@ def process_surface(surf_path,tri_format,header):
         dip=0
     return(dip,dipdir,vertices,lm2_df,tri_df)
 
-def build_strat_surfaces(root_dir,tri_format):
+def build_strat_surfaces(root_dir,tri_format,upper_padding):
     contacts=pd.DataFrame(columns=['index','X','Y','Z','formation','source'])
     orientations=pd.DataFrame(columns=['X','Y','Z','azimuth','dip','polarity','formation','source'])
     raw_contacts=pd.DataFrame(columns=['X','Y','Z','angle','lsx','lsy','formation','group'])
@@ -180,12 +180,12 @@ def build_strat_surfaces(root_dir,tri_format):
             dip,dipdir,vertices,lm2_df,tri=process_surface(obj_path_dir+file,tri_format,header)
             vertices['formation']=froot
             vmean=[vertices.X.mean(),vertices.Y.mean(),vertices.Z.mean()]
-            a_vertex=vertices.sample(1)
+            a_vertex=vertices.sample(1,random_state=1)
             fault_contacts=pd.concat([fault_contacts,vertices])
             fault_orientations.loc[faulti]={'X':a_vertex.iloc[0].X,'Y':a_vertex.iloc[0].Y,'Z':a_vertex.iloc[0].Z,'DipDirection':dipdir,'dip':dip,'DipPolarity':1,'formation':froot}
             
             fault_hr=0.5*sqrt((vertices.X.max()-vertices.X.min())**2+(vertices.Y.max()-vertices.Y.min())**2)#+(vertices.Z.max()-vertices.Z.min())**2)
-            fault_vr=fault_hr
+            fault_vr=fault_hr*2
             fault_id=fault_hr/2
             fault_dimensions.loc[faulti]={'Fault':froot,'HorizontalRadius':fault_hr,'VerticalRadius':fault_vr,'InfluenceDistance':fault_id,'incLength':fault_hr,'colour':'#b07670'}
             fault_displacements.loc[faulti]={'X':vmean[0],'Y':vmean[1],'fname':froot,'apparent_displacement':fault_hr/10000,'vertical_displacement':fault_hr/10000,'downthrow_dir':dipdir}
@@ -234,14 +234,15 @@ def build_strat_surfaces(root_dir,tri_format):
         
         
     contacts['index']=range(len(contacts))
-    zmax=zmax+500
+    zmax=zmax+upper_padding
     print(xmin,xmax,ymin,ymax,zmin,zmax)
     bbox=create_bbox(xmin,ymin,xmax,ymax,zmin,zmax)
     return(contacts,orientations,raw_contacts,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,all_sorts,bbox,faulti)
 
 def process_dykes_as_faults(obj_path_dir,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,faulti):
     dykes=pd.read_csv(obj_path_dir+'/dykes/DYKES.csv') 
-    dykes=dykes.drop(columns=['Unnamed: 4','Unnamed: 5','Unnamed: 6','Unnamed: 7'])
+    if('Unnamed: 4' in dykes.columns):
+        dykes=dykes.drop(columns=['Unnamed: 4','Unnamed: 5','Unnamed: 6','Unnamed: 7'])
     dykes['formation']='Fault_dyke_'+dykes.formation.astype('str')
     dykes=dykes[['X','Y','Z','formation']]
     for dyke in dykes.formation.unique():
@@ -262,8 +263,8 @@ def process_dykes_as_faults(obj_path_dir,fault_contacts,fault_orientations,fault
         
         fault_orientations.loc[faulti]={'X':vmean[0],'Y':vmean[1],'Z':vmean[2],'DipDirection':dipdir,'dip':90.0,'DipPolarity':1,'formation':dyke}
 
-        fault_hr=0.5*sqrt((adyke.X.max()-adyke.X.min())**2+(adyke.Y.max()-adyke.Y.min())**2)#+(vertices.Z.max()-vertices.Z.min())**2)
-        fault_vr=fault_hr
+        fault_hr=0.35*sqrt((adyke.X.max()-adyke.X.min())**2+(adyke.Y.max()-adyke.Y.min())**2)#+(vertices.Z.max()-vertices.Z.min())**2)
+        fault_vr=fault_hr*2.5
         fault_id=fault_hr/2
         fault_dimensions.loc[faulti]={'Fault':dyke,'HorizontalRadius':fault_hr*1.5,'VerticalRadius':fault_vr,'InfluenceDistance':fault_id,'incLength':fault_hr,'colour':'#b07670'}
         fault_displacements.loc[faulti]={'X':vmean[0],'Y':vmean[1],'fname':dyke,'apparent_displacement':fault_hr/10000,'vertical_displacement':fault_hr/10000,'downthrow_dir':dipdir}
@@ -337,7 +338,7 @@ def create_paths(root_dir):
         os.mkdir(out_dir+'/vtk')
 
 def harmonise_data_for_manual_ls(contacts,orientations,formation_thickness,all_sorts2,fault_orientations,fault_contacts,fault_displacements,fault_dimensions,strat_contact_frac):
-    contacts_points=contacts.drop(columns=['index','source']).sample(frac=strat_contact_frac)
+    contacts_points=contacts.drop(columns=['index','source']).sample(frac=strat_contact_frac,random_state=1)
     contacts_points=contacts_points.rename(columns={"formation": "name"})
     
 
@@ -384,8 +385,8 @@ def harmonise_data_for_manual_ls(contacts,orientations,formation_thickness,all_s
 
     return(contacts_points,stratigraphic_orientations,stratigraphic_thickness,stratigraphic_order,fault_orientations,fault_edges,fault_properties,fault_locations)
 
-def import_triangles(root_dir,suffix,strat_contact_frac):
-    contacts,orientations,raw_contacts,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,all_sorts,bbox,faulti=build_strat_surfaces(root_dir,suffix)
+def import_triangles(root_dir,suffix,strat_contact_frac,upper_padding):
+    contacts,orientations,raw_contacts,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,all_sorts,bbox,faulti=build_strat_surfaces(root_dir,suffix,upper_padding)
     fault_contacts,fault_orientations,fault_dimensions,fault_displacements=process_dykes_as_faults(root_dir,fault_contacts,fault_orientations,fault_dimensions,fault_displacements,faulti)
     all_sorts2,formation_thickness=calculate_formation_thickness(all_sorts)
     f_f_txt=calculate_ff_fsg_relationships(fault_dimensions)
@@ -426,11 +427,11 @@ def save_out_like_m2l(out_dir,raw_contacts,all_sorts2,orientations,contacts,base
     super_groups,bbox,f_f_txt,contacts3,b_o_df,formation_thickness,raw_contact_frac,strat_contact_frac,fault_contact_frac):
     #save out all outputs ready for LoopStructural (with decimation)
 
-    raw_contacts.sample(frac=raw_contact_frac).to_csv(out_dir + '/tmp/raw_contacts.csv',index=False)
+    raw_contacts.sample(frac=raw_contact_frac).to_csv(out_dir + '/tmp/raw_contacts.csv',index=False,random_state=1)
     all_sorts2.to_csv(out_dir + '/tmp/all_sorts_clean.csv',index=False)
 
     orientations.to_csv(out_dir + '/output/orientations_clean.csv',index=False)
-    contacts.sample(frac=strat_contact_frac).to_csv(out_dir + '/output/contacts_clean.csv',index=False)
+    contacts.sample(frac=strat_contact_frac).to_csv(out_dir + '/output/contacts_clean.csv',index=False,random_state=1)
 
     #add fake basement after decimation
     if(basement):
@@ -448,7 +449,7 @@ def save_out_like_m2l(out_dir,raw_contacts,all_sorts2,orientations,contacts,base
 
     fault_displacements.to_csv(out_dir + '/output/fault_displacements3.csv',index=False)
     fault_orientations.to_csv(out_dir + '/output/fault_orientations.csv',index=False)
-    fault_contacts.sample(frac=fault_contact_frac).to_csv(out_dir + '/output/faults.csv',index=False)
+    fault_contacts.sample(frac=fault_contact_frac).to_csv(out_dir + '/output/faults.csv',index=False,random_state=1)
     fault_fault.to_csv(out_dir + '/output/fault-fault-relationships.csv')
     group_fault.to_csv(out_dir + '/output/group-fault-relationships.csv')
     supergroup_fault.to_csv(out_dir + '/output/supergroup-fault-relationships.csv')

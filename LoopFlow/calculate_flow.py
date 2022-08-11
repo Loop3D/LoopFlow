@@ -40,7 +40,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
 
     fault_topo_mat = calculate_fault_topology_matrix(model,xyz,scale=True)
     import pickle
-    save_pickle=False
+    save_pickle=True
     if(save_pickle):
         with open(destination+'/xyzLitho.pickle', 'wb') as f:
             pickle.dump(xyzLitho, f)
@@ -103,7 +103,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
     elif(scenario=='fast_faults'): # and slow strat
         fault_node=1.0
         geological_formation_slow=5.0
-        geological_formation_fast=5.0
+        geological_formation_fast=1.0
         interformation_node=5.0
 
         fault_formation=1.0
@@ -179,7 +179,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
        
         
         
-    length_scale_max=857.1428571428569
+    length_scale_max=range*0.866 # half width * (3^0.5)/2 
     G=Graw.to_undirected()
     for n in G.nodes:
         if(G.nodes[n]['description']=='fault node'):
@@ -246,9 +246,9 @@ def add_deep_line_node(G,nodeid,minx,maxx,minz,range,faults_only):
 
     range_min=minx+((maxx-minx)/2)-range
     range_max=maxx+((maxx-minx)/2)+range
-    print("range=",range)
-    print("range_min=",range_min)
-    print("range_max=",range_max)
+    #print("range=",range)
+    #print("range_min=",range_min)
+    #print("range_max=",range_max)
 
     G.add_node(nodeid)
     if(nodeid==-1):
@@ -365,9 +365,9 @@ def add_side_node(G,nodeid,bbox2,range,side,faults_only):
         range_max=minz+range
 
 
-    print("range=",range,minx,maxx)
-    print("range_min=",range_min)
-    print("range_max=",range_max)
+    #print("range=",range,minx,maxx)
+    #print("range_min=",range_min)
+    #print("range_max=",range_max)
 
     G.add_node(nodeid)
     if(nodeid==-1):
@@ -514,7 +514,7 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
                 first=False
             else:
                 sg_df=pd.concat([sg_df,a_sg_df])
-                
+    """                
     path_litho=[]
     for index,p in enumerate(path):
         step_litho=[]
@@ -530,7 +530,21 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
         for i in range(len(sg_df)):
             count_litho.append(step_litho.count(i))
         path_litho.append((p,count_litho))
+    """        
+    path_litho=[]
+    for index,p in enumerate(path):
+        step_litho1=[]
+        step_litho2=[]
+        step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
+        step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
+        step_litho=step_litho1+step_litho2   
         
+        if(step_litho!= None):
+            count_litho=[step_litho.count(i) for i in range(len(sg_df))]
+            path_litho.append((p,count_litho))
+        if(index%10000==0):
+            print(index,len(path))
+
     columns=['a','b']
     path_litho_temp = pd.DataFrame(path_litho[1:], columns = columns)
     columns=[]

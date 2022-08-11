@@ -58,6 +58,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
         fault_names.append("fault"+str(f)) 
     
     Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=False,csvxpt=True) #,destination
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - GRAPH CALCULATED')
 
     return(Graw,df_nodes_raw,df_edges_raw)
 
@@ -236,6 +237,8 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         G=add_deep_line_node(G,-2,minx,maxx,minz,range,faults_only)
     elif(target=='point'):
         add_point_node(G,-2,px,py,pz,range,faults_only)
+    elif(target=='none'):
+        pass
     else:
         G=add_side_node(G,-2,bbox2,range,target,faults_only)
   
@@ -439,7 +442,8 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
         voxet={}
 
         for n in G.nodes:
-            voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
+            if(n!=-2):
+                voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
 
         voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
         voxet_df[:-2].to_csv(destination+'/'+scenario+'_dist_voxet.csv')

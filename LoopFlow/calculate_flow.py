@@ -60,9 +60,9 @@ def graph_from_model(model,voxel_size,bbox2,destination):
     Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=False,csvxpt=True) #,destination
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - GRAPH CALCULATED')
 
-    return(Graw,df_nodes_raw,df_edges_raw)
+    return(Graw,df_nodes_raw,df_edges_raw,[length_x,length_y,length_z])
 
-def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,range):
+def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,range,length_scale_max):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -179,8 +179,6 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         scenario='custom'
        
         
-        
-    length_scale_max=range*0.866 # half width * (3^0.5)/2 
     G=Graw.to_undirected()
     for n in G.nodes:
         if(G.nodes[n]['description']=='fault node'):
@@ -438,6 +436,10 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
         source=source_node.iloc[0]['id']
         print('source=',source)
         distance, path=nx.single_source_dijkstra(G, source, target=None, cutoff=None, weight='weight')
+        
+        if(len(distance)==1):
+            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NO CONNECTIONS FROM SOURCE, CHECK PARAMETERS')
+            return([0],[0],[0])
 
         voxet={}
 

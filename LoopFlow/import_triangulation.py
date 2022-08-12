@@ -184,7 +184,7 @@ def build_strat_surfaces(root_dir,tri_format,upper_padding):
             fault_contacts=pd.concat([fault_contacts,vertices])
             fault_orientations.loc[faulti]={'X':a_vertex.iloc[0].X,'Y':a_vertex.iloc[0].Y,'Z':a_vertex.iloc[0].Z,'DipDirection':dipdir,'dip':dip,'DipPolarity':1,'formation':froot}
             
-            fault_hr=0.5*sqrt((vertices.X.max()-vertices.X.min())**2+(vertices.Y.max()-vertices.Y.min())**2)#+(vertices.Z.max()-vertices.Z.min())**2)
+            fault_hr=0.75*sqrt((vertices.X.max()-vertices.X.min())**2+(vertices.Y.max()-vertices.Y.min())**2)#+(vertices.Z.max()-vertices.Z.min())**2)
             fault_vr=fault_hr*2
             fault_id=fault_hr/2
             fault_dimensions.loc[faulti]={'Fault':froot,'HorizontalRadius':fault_hr,'VerticalRadius':fault_vr,'InfluenceDistance':fault_id,'incLength':fault_hr,'colour':'#b07670'}

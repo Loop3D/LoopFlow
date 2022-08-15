@@ -404,7 +404,7 @@ def add_side_node(G,nodeid,bbox2,range,side,faults_only):
     return(G)
 
     
-def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
+def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,pt):
     dx=dy=dz=voxel_size
     minz=bbox2.iloc[0]['lower']
                
@@ -448,12 +448,60 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,scenario,destination):
                 voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
 
         voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
-        voxet_df[:-2].to_csv(destination+'/'+scenario+'_dist_voxet.csv')
+
+        normalise_distance(voxet_df,bbox2,voxel_size,source_type,pt[0],pt[1],pt[2])
+        voxet_df[:-2].to_csv(destination+'/'+scenario+'_path_dist.csv')
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
 
         return(voxet_df,distance,path)
 
+def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
+    maxz=bbox2.iloc[0]['upper']
+    minz=bbox2.iloc[0]['lower']
+    maxx=bbox2.iloc[0]['maxx']
+    minx=bbox2.iloc[0]['minx']
+    maxy=bbox2.iloc[0]['maxy']
+    miny=bbox2.iloc[0]['miny']
+    
 
+    if(source_type=='deep_line'):
+        avex=(maxx-minx)/2.0
+        euclidean=np.fabs(voxet_df.X-avex)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='point'):
+        euclideanx=np.square(voxet_df.X-ptx)
+        euclideany=np.square(voxet_df.Y-pty)
+        euclideanz=np.square(voxet_df.Z-ptz)
+        euclidean=np.sqrt(euclideanx+euclideany+euclideanz)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='west'):
+        euclidean=np.fabs(voxet_df.X-minx)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='east'):
+        euclidean=np.fabs(voxet_df.X-maxx)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='north'):
+        euclidean=np.fabs(voxet_df.Y-maxy)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='south'):
+        euclidean=np.fabs(voxet_df.Y-miny)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='top'):
+        euclidean=np.fabs(voxet_df.Z-maxz)
+        voxet_df['euclidean']=euclidean
+    elif(source_type=='base'):
+        euclidean=np.fabs(voxet_df.Z-minz)
+        voxet_df['euclidean']=euclidean
+    else:
+        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISATION FAILED')
+        return(voxet_df)
+
+    
+    voxet_df['dist_norm']=voxel_size*voxet_df['dist']/euclidean
+
+     
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISED')
+    return(voxet_df)
                     
 def calculate_paths(path,df_nodes,scenario,destination):
     from collections import Counter
@@ -571,7 +619,7 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
     return(scenery)
 
 def save_nodes(df_nodes,scenario,destination):
-    df_nodes.to_csv(destination+'/'+scenario+'_test-nodes.csv',index=False)
+    df_nodes.to_csv(destination+'/'+scenario+'_model-nodes.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES SAVED')
 
 def located_edges(df_nodes,df_edges,scenario,destination):
@@ -594,7 +642,7 @@ def located_edges(df_nodes,df_edges,scenario,destination):
 def save_edges(df_nodes,df_edges,scenario,destination):
     
     df_edges_test=located_edges(df_nodes,df_edges,scenario,destination)
-    df_edges_test.to_csv(destination+'/'+scenario+'_edges.csv',index=False)
+    df_edges_test.to_csv(destination+'/'+scenario+'_model-edges.csv',index=False)
 
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES SAVED')
 

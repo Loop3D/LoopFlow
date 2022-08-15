@@ -62,6 +62,19 @@ def graph_from_model(model,voxel_size,bbox2,destination):
 
     return(Graw,df_nodes_raw,df_edges_raw,[length_x,length_y,length_z])
 
+def randomise_weights(G,mu,sigma):
+    import random
+    for e in G.edges:
+        factor=random.gauss(mu, sigma)
+        if(factor<0):
+            factor=0.1
+            G.edges[e]['weight'] = G.edges[e]['weight'] * factor
+            G.edges[e]['capacity'] = G.edges[e]['capacity'] / factor
+        else:
+            G.edges[e]['weight'] = G.edges[e]['weight'] * factor
+            G.edges[e]['capacity'] = G.edges[e]['capacity'] / factor
+    return(G)
+
 def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
 
     maxz=bbox2.iloc[0]['upper']

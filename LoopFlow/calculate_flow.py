@@ -697,7 +697,7 @@ def save_voxels(model,obj_path_dir,bbox2,voxel_size,vtype): #vtype='asc','raw','
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - '+vtype+' VOXELS SAVED')
 
 
-def merge_outputs(voxet_df,df_nodes,scenery,scenario,destination):
+def merge_outputs(voxet_df,df_nodes,scenery,source,scenario,destination):
     all_nodes=voxet_df[:-1].merge(df_nodes[:-1],how='outer',left_index=True,right_index=True)
     all_nodes=all_nodes.merge(scenery,how='outer',left_index=True,right_index=True)
 
@@ -713,7 +713,7 @@ def merge_outputs(voxet_df,df_nodes,scenery,scenario,destination):
 
     all_nodes=all_nodes.rename(columns={'geocode_x':'geocode','description_x':'description', 'orthodim_x':'orthodim'})
     all_nodes['dist_inv']=1/all_nodes.dist.pow(0.5)
-    all_nodes.to_csv(destination+'/'+scenario+'_combined.csv')
+    all_nodes.to_csv(destination+'/'+source+'_'+scenario+'_combined.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - OUTPUTS COMBINED')
 
 def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,source_type,scenario,destination):

@@ -494,7 +494,7 @@ def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
         voxet_df['euclidean']=euclidean
     else:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISATION FAILED')
-        return(voxet_df)
+        return(voxet_df) 
 
     
     voxet_df['dist_norm']=voxel_size*voxet_df['dist']/euclidean
@@ -511,7 +511,7 @@ def calculate_paths(path,df_nodes,scenario,destination):
     df_nodes['count']=counts[0]
     df_nodes[:-1].to_csv(destination+'/'+scenario+'_path_count.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - PATHS CALCULATED')
-
+    return(df_nodes[:-1])
 
 def calculate_scenery(G,model,df_nodes,path,scenario,destination):
 
@@ -584,7 +584,23 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
         for i in range(len(sg_df)):
             count_litho.append(step_litho.count(i))
         path_litho.append((p,count_litho))
-    """        
+    """    
+    """
+
+    #slower but cleaner!
+    path_df=pd.DataFrame.from_dict(path,orient='index').fillna(-1).transpose()
+
+    path_df2=pathx_df.copy(deep=True)
+    path_df3=pathx_df.copy(deep=True)
+
+    path_df2=path_df2.applymap(lambda x: node_lith_df.loc[x].litho1) # need faster equivalent
+    path_df3=path_df3.applymap(lambda x: node_lith_df.loc[x].litho2)
+
+    path_df2=path_df2.apply(pd.Series.value_counts).fillna(0)
+    path_df3=path_df3.apply(pd.Series.value_counts).fillna(0)
+
+    path_litho_df=(path_df2.reindex_like(path_df3).fillna(0) + path_df3.fillna(0).fillna(0))
+    """    
     path_litho=[]
     for index,p in enumerate(path):
         step_litho1=[]

@@ -414,7 +414,7 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,
     dx=dy=dz=voxel_size
     minz=bbox2.iloc[0]['lower']
                
-    nx.write_gml(G,destination+'/'+scenario+'_model.gml') 
+    nx.write_gml(G,destination+'/'+source_type+'_'+scenario+'_model.gml') 
     def_src=pd.DataFrame(index=[-1],data={'id':-1,'X':0,'Y':0,'Z':minz-1,'geocode':'deep source','description':'deep source','orthodim':0})
     df_nodes=pd.concat([df_nodes,def_src])
 
@@ -456,7 +456,7 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,
         voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
 
         normalise_distance(voxet_df,bbox2,voxel_size,source_type,pt[0],pt[1],pt[2])
-        voxet_df[:-2].to_csv(destination+'/'+scenario+'_path_dist.csv')
+        voxet_df[:-2].to_csv(destination+'/'+source_type+'_'+scenario+'_path_dist.csv')
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
 
         return(voxet_df,distance,path)
@@ -509,17 +509,17 @@ def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISED')
     return(voxet_df)
                     
-def calculate_paths(path,df_nodes,scenario,destination):
+def calculate_paths(path,df_nodes,source_type,scenario,destination):
     from collections import Counter
     flat_list=[val for vals in path.values() for val in vals]
     node_count=Counter(flat_list)
     counts=pd.DataFrame.from_dict(node_count,orient='index').sort_index()
     df_nodes['count']=counts[0]
-    df_nodes[:-1].to_csv(destination+'/'+scenario+'_path_count.csv',index=False)
+    df_nodes[:-1].to_csv(destination+'/'+source_type+'_'+scenario+'_path_count.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - PATHS CALCULATED')
     return(df_nodes[:-1])
 
-def calculate_scenery(G,model,df_nodes,path,scenario,destination):
+def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
 
     # create dict of lithos for strat nodes and empty rows for faults
     node_lith={}
@@ -635,13 +635,13 @@ def calculate_scenery(G,model,df_nodes,path,scenario,destination):
 
     scenery=df_nodes.merge(path_litho_df, how='outer',left_on='lkey', right_on='rkey')
 
-    scenery.to_csv(destination+'/'+scenario+'_path_scenery.csv')
+    scenery.to_csv(destination+'/'+source_type+'_'+scenario+'_path_scenery.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SCENERY CALCULATED')
 
     return(scenery)
 
-def save_nodes(df_nodes,scenario,destination):
-    df_nodes.to_csv(destination+'/'+scenario+'_model-nodes.csv',index=False)
+def save_nodes(df_nodes,source_type,scenario,destination):
+    df_nodes.to_csv(destination+'/'+source_type+'_'+scenario+'_model-nodes.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES SAVED')
 
 def located_edges(df_nodes,df_edges,scenario,destination):
@@ -661,10 +661,10 @@ def located_edges(df_nodes,df_edges,scenario,destination):
     return(df_edges_test)
 
 
-def save_edges(df_nodes,df_edges,scenario,destination):
+def save_edges(df_nodes,df_edges,source_type,scenario,destination):
     
     df_edges_test=located_edges(df_nodes,df_edges,scenario,destination)
-    df_edges_test.to_csv(destination+'/'+scenario+'_model-edges.csv',index=False)
+    df_edges_test.to_csv(destination+'/'+source_type+'_'+scenario+'_model-edges.csv',index=False)
 
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES SAVED')
 
@@ -716,7 +716,7 @@ def merge_outputs(voxet_df,df_nodes,scenery,scenario,destination):
     all_nodes.to_csv(destination+'/'+scenario+'_combined.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - OUTPUTS COMBINED')
 
-def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,scenario,destination):
+def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,source_type,scenario,destination):
     R = boykov_kolmogorov(G, source, target,capacity='capacity')
 
     df_edges_test=located_edges(df_nodes_raw,df_edges_raw,scenario,destination)
@@ -731,5 +731,5 @@ def calc_boykov_kolmogorov(G,source,target,df_nodes_raw,df_edges_raw,scenario,de
 
     new_df[(~new_df.source.isna())&(new_df.source<new_df.target) ]
 
-    new_df.to_csv(destination+'/'+scenario+'_edges_bk.csv')
+    new_df.to_csv(destination+'/'+source_type+'_'+scenario+'_edges_bk.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BK_EDGES SAVED')

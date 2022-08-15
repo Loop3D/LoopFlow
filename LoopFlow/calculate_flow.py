@@ -503,7 +503,7 @@ def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
         return(voxet_df) 
 
     
-    voxet_df['dist_norm']=voxel_size*voxet_df['dist']/euclidean
+    voxet_df['dist_norm']=voxel_size*voxet_df['dist']/(euclidean+1)
 
      
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISED')

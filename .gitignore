@@ -1,4 +1,4 @@
 tests/
 __pycache__/
 Notebook/.ipynb_checkpoints/*
-LoopFlow.egg-info
+LoopFlow.egg-info/

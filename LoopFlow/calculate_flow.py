@@ -62,7 +62,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
 
     return(Graw,df_nodes_raw,df_edges_raw,[length_x,length_y,length_z])
 
-def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,range,length_scale_max):
+def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -224,32 +224,30 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 
 
     if(source=='deep_line'):
-        G=add_deep_line_node(G,-1,minx,maxx,minz,range*2,faults_only)
+        G=add_deep_line_node(G,-1,minx,maxx,minz,ranges*2,faults_only)
     elif(source=='point'):
-        add_point_node(G,-1,px,py,pz,range*2,faults_only)
+        add_point_node(G,-1,px,py,pz,ranges*2,faults_only)
     else:
-        G=add_side_node(G,-1,bbox2,range*2,source,faults_only)
+        G=add_side_node(G,-1,bbox2,ranges*2,source,faults_only)
 
    
     if(target=='deep_line'):
-        G=add_deep_line_node(G,-2,minx,maxx,minz,range*2,faults_only)
+        G=add_deep_line_node(G,-2,minx,maxx,minz,ranges*2,faults_only)
     elif(target=='point'):
-        add_point_node(G,-2,px,py,pz,range*2,faults_only)
+        add_point_node(G,-2,px,py,pz,ranges*2,faults_only)
     elif(target=='none'):
         pass
     else:
-        G=add_side_node(G,-2,bbox2,range*2,target,faults_only)
+        G=add_side_node(G,-2,bbox2,ranges*2,target,faults_only)
   
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)
 
-def add_deep_line_node(G,nodeid,minx,maxx,minz,range,faults_only):
+def add_deep_line_node(G,nodeid,minx,maxx,minz,ranges,faults_only):
 
-    range_min=minx+((maxx-minx)/2)-range
-    range_max=maxx+((maxx-minx)/2)+range
-    #print("range=",range)
-    #print("range_min=",range_min)
-    #print("range_max=",range_max)
+    range_min=minx+((maxx-minx)/2)-ranges
+    range_max=maxx+((maxx-minx)/2)+ranges
+
 
     G.add_node(nodeid)
     if(nodeid==-1):
@@ -303,14 +301,14 @@ def join_node(G,n,name,type):
         G.edges[nodeid,n]['capacity']= 100000
     return(G)
 
-def add_point_node(G,nodeid,x,y,z,range,faults_only):
+def add_point_node(G,nodeid,x,y,z,ranges,faults_only):
 
-    pt_xmin=x-range
-    pt_xmax=x+range
-    pt_ymin=y-range
-    pt_ymax=y+range
-    pt_zmin=z-range
-    pt_zmax=z+range
+    pt_xmin=x-ranges
+    pt_xmax=x+ranges
+    pt_ymin=y-ranges
+    pt_ymax=y+ranges
+    pt_zmin=z-ranges
+    pt_zmax=z+ranges
 
 
     G.add_node(nodeid)
@@ -338,7 +336,7 @@ def add_point_node(G,nodeid,x,y,z,range,faults_only):
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - POINT SOURCE ADDED')
     return(G)
 
-def add_side_node(G,nodeid,bbox2,range,side,faults_only):
+def add_side_node(G,nodeid,bbox2,ranges,side,faults_only):
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
     maxx=bbox2.iloc[0]['maxx']
@@ -348,27 +346,22 @@ def add_side_node(G,nodeid,bbox2,range,side,faults_only):
 
     if(side=='west'):
         range_min=minx
-        range_max=minx+range
+        range_max=minx+ranges
     elif(side=='east'):
-        range_min=maxx-range
+        range_min=maxx-ranges
         range_max=maxx
     elif(side=='north'):
-        range_min=maxy-range
+        range_min=maxy-ranges
         range_max=maxy
     elif(side=='south'):
         range_min=miny
-        range_max=miny+range
+        range_max=miny+ranges
     elif(side=='top'):
-        range_min=maxz-range
+        range_min=maxz-ranges
         range_max=maxz
     else: #(side=='base')
         range_min=minz
-        range_max=minz+range
-
-
-    #print("range=",range,minx,maxx)
-    #print("range_min=",range_min)
-    #print("range_max=",range_max)
+        range_max=minz+ranges
 
     G.add_node(nodeid)
     if(nodeid==-1):

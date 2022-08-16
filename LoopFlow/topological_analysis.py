@@ -10,7 +10,7 @@ Identify edges between adjacent nodes (contact on a voxel face (in the 3D case)
 
 @author: Guillaume PIROT
 """
-__version__="0.1.15"
+__version__="0.1.16"
 
 import numpy as np
 import pandas as pd
@@ -461,11 +461,12 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     # IDENTIFY NODES WITHOUT EDGES AND IF NODES WITH SAME COORDINATES EXIST ??
     # REMOVE EVENTUAL DUPICATE EDGES
     if unique_edges == True:
-        if verb==True:
+        if verb:
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - REMOVE DUPLICATE edges') 
         df_edges.drop_duplicates(subset=['id_node_src','id_node_tgt'], keep='first', inplace=True)
     
     # EDGE LABELS
+    if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - LABELING edges')
     df_edges.reset_index(drop=True, inplace=True)
     ed_ix2label = np.asarray(np.where(df_edges["type"].isna())).flatten()
     feat1 = df_nodes.loc[df_edges.iloc[ed_ix2label,0].values,"geocode"].values
@@ -500,8 +501,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     df_edges.reset_index(drop=True, inplace=True)
     
     # duplicate edges for non-oriented graph
-    if verb==True:
-        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BIDIRECTIONAL edges') 
+    if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BIDIRECTIONAL edges') 
     df_tmpEdges = pd.DataFrame({'id_node_src':df_edges['id_node_tgt'].values,
                                 'id_node_tgt':df_edges['id_node_src'].values,
                                 'type':df_edges['type'].values,
@@ -519,8 +519,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 
 
     # Add orientation and distance from source to target
-    if verb==True:
-        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - ADDING ORIENTATION AND LENGTH') 
+    if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - ADDING ORIENTATION AND LENGTH') 
     df_edges['vx'] = (df_nodes.loc[df_edges['id_node_tgt'].values,'X'].values 
                       - df_nodes.loc[df_edges['id_node_src'].values,'X'].values)
     df_edges['vy'] = (df_nodes.loc[df_edges['id_node_tgt'].values,'Y'].values 
@@ -533,8 +532,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 
     if simplify==True:
         # Simplify geol feature connections
-        if verb==True:
-            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY FAULT-FAULT edges') 
+        if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY FAULT-FAULT edges') 
         # fault-fault
         df_edges.reset_index(drop=True, inplace=True)
         ixtmp  = np.asarray(np.where(df_edges['type']=='fault-fault')).flatten()
@@ -564,8 +562,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
         del df_tmp,ixtmp
         
         # Simplify geol feature connections
-        if verb==True:
-            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY INTERFORM-FAULT edges') 
+        if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY INTERFORM-FAULT edges') 
         # fault-inter 'interform-fault'
         df_edges.reset_index(drop=True, inplace=True)
         ixtmp  = np.asarray(np.where(df_edges['type']=='interform-fault')).flatten()
@@ -596,8 +593,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     
         
         # Simplify geol feature connections
-        if verb==True:
-            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY INTERFORM-INTERFORM edges') 
+        if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SIMPLIFY INTERFORM-INTERFORM edges') 
         # inter-inter 'interform-interform'
         df_edges.reset_index(drop=True, inplace=True)
         ixtmp  = np.asarray(np.where(df_edges['type']=='interform-interform')).flatten()
@@ -633,7 +629,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     # reset edges index
     df_edges.sort_values(by=['id_node_src','id_node_tgt'], axis=0, ascending=True, inplace=True)
     df_edges.reset_index(drop=True, inplace=True)
-    if verb==True:
+    if verb:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - MEMORY USAGE - END')
         print('df_nodes: ' + str(sys.getsizeof(df_nodes)/mem_factor) + ' ' + mem_unit +
               ' - '+str(len(df_nodes))+' nodes')
@@ -680,9 +676,9 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
     G : DiGraph
         networkx graph
     df_nodes : DataFrame
-        pandas Dataframe listing the graph nodes
+        pandas DataFrame listing the graph nodes
     df_edges : DataFrame
-        pandas Dataframe listing the graph edges
+        pandas DataFrame listing the graph edges
     """
     df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=unique_edges,simplify=simplify,verb=verb)
     if verb==True:
@@ -729,4 +725,23 @@ def extract_shift_dim(input_mx,axis_mx):
     out1 = input_mx.take(indices=range(1, tmpdim[axis_mx]), axis=axis_mx).flatten()
     out2 = input_mx.take(indices=range(0, tmpdim[axis_mx]-1), axis=axis_mx).flatten()
     return out1,out2
+
+def add_edges_geocodes(df_edges,df_nodes):
+    """
+    Parameters
+    ----------
+    df_edges : DataFrame
+        pandas DataFrame listing the graph edges
+    df_nodes : DataFrame
+        pandas DataFrame listing the graph nodes
+
+    Returns
+    -------
+    Adds the source and target geocodes to the df_edges dataframe
+    in two columns: 'geocode_src' and 'geocode_tgt' 
+
+    """
+    df_edges['geocode_src']=df_nodes.loc[df_edges['id_node_src'].values.astype(int),'geocode'].values    
+    df_edges['geocode_tgt']=df_nodes.loc[df_edges['id_node_tgt'].values.astype(int),'geocode'].values
+    return
 

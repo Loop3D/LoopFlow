@@ -625,7 +625,8 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
   
     # remove columns from node dataframe
     df_nodes.drop(axis=1,columns=['interform_geocode_a','interform_geocode_b'],inplace=True)
-  
+
+    
     # reset edges index
     df_edges.sort_values(by=['id_node_src','id_node_tgt'], axis=0, ascending=True, inplace=True)
     df_edges.reset_index(drop=True, inplace=True)
@@ -637,13 +638,13 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
         print('df_edges: ' + str(sys.getsizeof(df_edges)/mem_factor) + ' ' + mem_unit +
               ' - '+str(len(df_edges))+' edges')
         print(df_edges.groupby(['type']).size())       
-
+    
     return df_nodes,df_edges
 
 # Memory profiling https://github.com/spyder-ide/spyder-memory-profiler 
 # Add a @profile decorator to the functions that you wish to profile then Ctrl+Shift+F10 to run the profiler on the current script, or go to Run > Profile memory line by line.
 # @profile
-def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",unique_edges=True,simplify=True,verb=False,csvxpt=False):
+def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",unique_edges=True,simplify=True,verb=False,csvxpt=False,edgeGeocode=True):
     """"Conversion of a regular grid voxet into a graph
 
     Parameters
@@ -670,6 +671,8 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         optional boolean True or False (default) - verbose - print what it is doing 
     csvxpt : bool
         optional boolean True or False (default) - export node and edges dataframe to .csv files in the destination folder   
+    edgeGeocode bool
+        optional boolean True (default) or False - Adds the source and target geocodes to the df_edges dataframe
 
     Returns
     -------
@@ -681,6 +684,8 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         pandas DataFrame listing the graph edges
     """
     df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=unique_edges,simplify=simplify,verb=verb)
+    # add geocodes
+    if edgeGeocode: add_edges_geocodes(df_edges,df_nodes)
     if verb==True:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BUILDING GRAPH')
     G = nx.from_pandas_edgelist(df_edges, source='id_node_src', target='id_node_tgt', edge_attr=True,create_using=nx.DiGraph())    #,create_using=nx.DiGraph()

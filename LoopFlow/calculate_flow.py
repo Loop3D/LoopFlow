@@ -40,7 +40,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
 
     fault_topo_mat = calculate_fault_topology_matrix(model,xyz,scale=True)
     import pickle
-    save_pickle=True
+    save_pickle=False
     if(save_pickle):
         with open(destination+'/xyzLitho.pickle', 'wb') as f:
             pickle.dump(xyzLitho, f)
@@ -57,7 +57,9 @@ def graph_from_model(model,voxel_size,bbox2,destination):
     for f in range(nbfaults):
         fault_names.append("fault"+str(f)) 
     
-    Graw,df_nodes_raw,df_edges_raw = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination,unique_edges=True,simplify=False,verb=False,csvxpt=True) #,destination
+    Graw,df_nodes_raw,df_edges_raw,edgeless_nodes = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,
+            destination,unique_edges=True,simplify=False,verb=False,csvxpt=True,edgeGeocode=True) #,destination
+            
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - GRAPH CALCULATED')
 
     return(Graw,df_nodes_raw,df_edges_raw,[length_x,length_y,length_z])
@@ -85,93 +87,108 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
     miny=bbox2.iloc[0]['miny']
 
     if(scenario=='fast_both'):
-        fault_node=1.0
-        geological_formation_slow=5.0
-        geological_formation_fast=5.0
-        interformation_node=5.0
+        fault_node=1
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=5
 
-        fault_formation=1.0
-        same_fault=0.1
-        fault_fault=1.0
-        interform_fault=1.0
-        interform_formation=1.0
-        interform_interform=1.0
-        same_interform=5.0
+        fault_formation=5
+        same_fault=5
+        fault_fault=5
+        interform_fault=5
+        interform_formation=1000
+        interform_interform=1000
+        same_interform=1000
 
         fast_formation_code=fast_litho
     elif(scenario=='fast_strat_contacts'): # and slow faults
         fault_node=5.0
-        geological_formation_slow=1.0
-        geological_formation_fast=1.0
-        interformation_node=1.0
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=1
 
-        fault_formation=1.0
-        same_fault=5.0
-        fault_fault=5.0
-        interform_fault=1.0
-        interform_formation=1.0
-        interform_interform=1.0
-        same_interform=5.0
+        fault_formation=1000
+        same_fault=1000
+        fault_fault=1000
+        interform_fault=1000
+        interform_formation=1000
+        interform_interform=1000
+        same_interform=1000
 
         fast_formation_code=fast_litho
     elif(scenario=='fast_faults'): # and slow strat
-        fault_node=1.0
-        geological_formation_slow=5.0
-        geological_formation_fast=1.0
-        interformation_node=5.0
+        fault_node=1
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=5
 
-        fault_formation=1.0
-        same_fault=0.1
-        fault_fault=1.0
-        interform_fault=5.0
-        interform_formation=5.0
-        interform_interform=5.0
-        same_interform=5.0
+        fault_formation=5
+        same_fault=5
+        fault_fault=5
+        interform_fault=5
+        interform_formation=1000
+        interform_interform=1000
+        same_interform=1000
 
         fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_not_paths'): # and fast strat
-        fault_node=1000.0
-        geological_formation_slow=200.0
-        geological_formation_fast=1.0
-        interformation_node=1.0
+        fault_node=1000
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=1
 
-        fault_formation=1000.0
-        same_fault=1000.0
-        fault_fault=1000.0
-        interform_fault=1000.0
-        interform_formation=25.0
-        interform_interform=25.0
-        same_interform=25.0
+        fault_formation=1000
+        same_fault=1000
+        fault_fault=1000
+        interform_fault=1000
+        interform_formation=5
+        interform_interform=5
+        same_interform=5
 
         fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_but_paths_and_fast_strat'):
-        fault_node=5.0
-        geological_formation_slow=1.0
-        geological_formation_fast=1.0
-        interformation_node=1.0
+        fault_node=5
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=1
 
-        fault_formation=5.0
-        same_fault=1.0
-        fault_fault=1.0
-        interform_fault=5.0
-        interform_formation=1.0
-        interform_interform=1.0
-        same_interform=5.0
+        fault_formation=5
+        same_fault=1000
+        fault_fault=1000
+        interform_fault=5
+        interform_formation=5
+        interform_interform=5
+        same_interform=5
 
         fast_formation_code=fast_litho
-    elif(scenario=="homogeneous"): # homogeneous
-        fault_node=1.0
-        geological_formation_slow=1.0
-        geological_formation_fast=1.0
-        interformation_node=1.0
+    elif(scenario=="fault_intersections_fast"): # fault_intersections_fast
+        fault_node=1
+        geological_formation_slow=1000
+        geological_formation_fast=5
+        interformation_node=1
 
-        fault_formation=1.0
-        same_fault=1.0
-        fault_fault=1.0
-        interform_fault=1.0
-        interform_formation=1.0
-        interform_interform=1.0
-        same_interform=1.0
+        fault_formation=1000
+        same_fault=1000
+        fault_fault=5
+        interform_fault=1000
+        interform_formation=1000
+        interform_interform=1000
+        same_interform=1000
+
+        fast_formation_code=[-99]
+    elif(scenario=="homogeneous"): # homogeneous
+        fault_node=1
+        geological_formation_slow=1
+        geological_formation_fast=1
+        interformation_node=1
+
+        fault_formation=1
+        same_fault=1
+        fault_fault=1
+        interform_fault=1
+        interform_formation=1
+        interform_interform=1
+        same_interform=1
 
         fast_formation_code=[-99]
     else: # custom
@@ -252,7 +269,13 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         pass
     else:
         G=add_side_node(G,-2,bbox2,ranges*2,target,faults_only)
-  
+    
+    for e in G.edges: #make integers to make networkx happy
+        G.edges[e]['weight']=int(G.edges[e]['weight'])
+        
+    for n in G.nodes: #overwrite a note currently used
+        G.nodes[n]['weight']=10000 
+
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)
 
@@ -274,7 +297,7 @@ def add_deep_line_node(G,nodeid,minx,maxx,minz,ranges,faults_only):
     G.nodes[nodeid]['geocode']= name
     G.nodes[nodeid]['description']= name
     G.nodes[nodeid]['orthodim']= 0
-    G.nodes[nodeid]['weight']= 1.0
+    G.nodes[nodeid]['weight']= 1
 
     for n in G.nodes():
         if(n >=0):
@@ -297,7 +320,7 @@ def join_node(G,n,name,type):
         G.edges[n,nodeid]['vy']= 0.0
         G.edges[n,nodeid]['vz']= 0.0
         G.edges[n,nodeid]['length']= 0
-        G.edges[n,nodeid]['weight']= 0.1
+        G.edges[n,nodeid]['weight']= 5
         G.edges[n,nodeid]['capacity']= 100000
     else:
         nodeid=-1
@@ -310,7 +333,7 @@ def join_node(G,n,name,type):
         G.edges[nodeid,n]['vy']= 0.0
         G.edges[nodeid,n]['vz']= 0.0
         G.edges[nodeid,n]['length']= 0
-        G.edges[nodeid,n]['weight']= 0.1
+        G.edges[nodeid,n]['weight']= 5
         G.edges[nodeid,n]['capacity']= 100000
     return(G)
 
@@ -336,7 +359,7 @@ def add_point_node(G,nodeid,x,y,z,ranges,faults_only):
     G.nodes[nodeid]['geocode']= name
     G.nodes[nodeid]['description']= name
     G.nodes[nodeid]['orthodim']= 0
-    G.nodes[nodeid]['weight']= 1.0
+    G.nodes[nodeid]['weight']= 1
 
     for n in G.nodes():
         if(n >=0):
@@ -388,7 +411,7 @@ def add_side_node(G,nodeid,bbox2,ranges,side,faults_only):
     G.nodes[nodeid]['geocode']= name
     G.nodes[nodeid]['description']= name
     G.nodes[nodeid]['orthodim']= 0
-    G.nodes[nodeid]['weight']= 1.0
+    G.nodes[nodeid]['weight']= 1
 
     for n in G.nodes():
         if(n>=0):
@@ -415,9 +438,9 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,
     minz=bbox2.iloc[0]['lower']
                
     nx.write_gml(G,destination+'/'+source_type+'_'+scenario+'_model.gml') 
-    def_src=pd.DataFrame(index=[-1],data={'id':-1,'X':0,'Y':0,'Z':minz-1,'geocode':'deep source','description':'deep source','orthodim':0})
+    def_src=pd.DataFrame(index=[-1],data={'id':-1,'X':0,'Y':0,'Z':minz-1,'geocode':'source','description':'source','orthodim':0})
     df_nodes=pd.concat([df_nodes,def_src])
-
+    source=-1
 
     def func(u, v, d):
         node_u_wt = G.nodes[u].get("weight", 1)
@@ -426,40 +449,25 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,
         return edge_wt
         #return node_u_wt / 2 + node_v_wt / 2 + edge_wt
         
-    X=0
-    Y=0
-    Z=minz-1
+    distance, path=nx.single_source_dijkstra(G, source, target=None, cutoff=None, weight='weight')
+    
+    if(len(distance)==1):
+        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NO CONNECTIONS FROM SOURCE, CHECK PARAMETERS')
+        return([0],[0],[0])
+    
+    voxet={}
 
-       
-    #try:
-    if(True):
-        close=0.51
-        source_node=df_nodes.copy()
-        source_node=source_node[(source_node['description']=='geological formation')|(source_node['description']=='deep source')]
-        source_node=source_node[(source_node['X']>X-(dx*close)) & (source_node['X']<X+(dx*close))]
-        source_node=source_node[(source_node['Y']>Y-(dy*close)) & (source_node['Y']<Y+(dy*close))]
-        source_node=source_node[(source_node['Z']>Z-(dz*close)) & (source_node['Z']<Z+(dz*close))]
-        source=source_node.iloc[0]['id']
-        print('source=',source)
-        distance, path=nx.single_source_dijkstra(G, source, target=None, cutoff=None, weight='weight')
-        
-        if(len(distance)==1):
-            print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NO CONNECTIONS FROM SOURCE, CHECK PARAMETERS')
-            return([0],[0],[0])
+    for n in G.nodes:
+        if(n!=-2):
+            voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
 
-        voxet={}
+    voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
 
-        for n in G.nodes:
-            if(n!=-2):
-                voxet[n]={'dist':distance[n],'weight':G.nodes[n]['weight'],'X':G.nodes[n]['X'],'Y':G.nodes[n]['Y'],'Z':G.nodes[n]['Z']}
+    normalise_distance(voxet_df,bbox2,voxel_size,source_type,pt[0],pt[1],pt[2])
+    voxet_df[:-2].to_csv(destination+'/'+source_type+'_'+scenario+'_path_dist.csv')
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
 
-        voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
-
-        normalise_distance(voxet_df,bbox2,voxel_size,source_type,pt[0],pt[1],pt[2])
-        voxet_df[:-2].to_csv(destination+'/'+source_type+'_'+scenario+'_path_dist.csv')
-        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
-
-        return(voxet_df,distance,path)
+    return(voxet_df,distance,path)
 
 def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
     maxz=bbox2.iloc[0]['upper']

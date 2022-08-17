@@ -10,7 +10,7 @@ Identify edges between adjacent nodes (contact on a voxel face (in the 3D case)
 
 @author: Guillaume PIROT
 """
-__version__="0.1.17"
+__version__="0.1.18"
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ import networkx as nx
 import sys
 import os
 from datetime import datetime
-from scipy.interpolate import NearestNDInterpolator
+from scipy.interpolate import RegularGridInterpolator, NearestNDInterpolator
 
 # INPUT VARIABLES
 # nd_X: regular grid ND-array of x-coordinates
@@ -634,17 +634,46 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 
     # REMOVE EDGES CROSSING FAULTS 
     if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - REMOVE EDGES CROSSING FAULTS')
+    x = np.sort(np.unique(nd_X))
+    y = np.sort(np.unique(nd_Y))
+    z = np.sort(np.unique(nd_Z))
+    # order x y z along dimensions
+    if len(x)==dim[0]:
+        v0 = x
+        pts0 = np.asarray(df_nodes['X']).astype(float)
+    elif len(y)==dim[0]:
+        v0 = y
+        pts0 = np.asarray(df_nodes['Y']).astype(float)
+    elif len(z)==dim[0]:
+        v0 = z
+        pts0 = np.asarray(df_nodes['Z']).astype(float)
+    if len(y)==dim[1]:
+        v1 = y
+        pts1 = np.asarray(df_nodes['Y']).astype(float)
+    elif len(x)==dim[1]:
+        v1 = x
+        pts1 = np.asarray(df_nodes['X']).astype(float)
+    elif len(z)==dim[1]:
+        v1 = z
+        pts1 = np.asarray(df_nodes['Z']).astype(float)
+    if len(z)==dim[2]:
+        v2 = z
+        pts2 = np.asarray(df_nodes['Z']).astype(float)
+    elif len(x)==dim[2]:
+        v2 = x
+        pts2 = np.asarray(df_nodes['X']).astype(float)
+    elif len(y)==dim[2]:
+        v2 = y
+        pts2 = np.asarray(df_nodes['Y']).astype(float)
+    pts = np.concatenate((np.reshape(pts0,(len(df_nodes),1)), np.reshape(pts1,(len(df_nodes),1)), np.reshape(pts2,(len(df_nodes),1))), axis=1)
     fault_topo_nodes = np.zeros((len(df_nodes),nbfaults)).astype(int)
     for f in range(nbfaults):
         if verb: print('fault_names[fault_id]:',fault_names[f])
         cur_topo_fault = nd_topo_faults[:,:,:,f]
-        cur_ix = np.where(cur_topo_fault!=0)
+        # cur_ix = np.where(cur_topo_fault!=0)
         if verb: print('np.unique(cur_topo_fault):',np.unique(cur_topo_fault))
-        if np.size(cur_ix)>0:
-            # cur_interp = RegularGridInterpolator((x,y,z),cur_topo_fault,method='nearest')
-            cur_interp = NearestNDInterpolator(list(zip(nd_X[cur_ix].flatten(), nd_Y[cur_ix].flatten(), nd_Z[cur_ix].flatten())), cur_topo_fault[cur_ix].flatten())
-            # fault_topo_nodes[:,f] = cur_interp(pts).astype(int)
-            fault_topo_nodes[:,f] = cur_interp(df_nodes['X'].astype(float),df_nodes['Y'].astype(float),df_nodes['Z'].astype(float)).astype(int)
+        cur_interp = RegularGridInterpolator((v0,v1,v2),cur_topo_fault,method='nearest')
+        fault_topo_nodes[:,f] = cur_interp(pts).astype(int)
     crossing_fault = np.sum( 1*( (fault_topo_nodes[df_edges['id_node_src'].values.astype(int),:] 
                                  *fault_topo_nodes[df_edges['id_node_tgt'].values.astype(int),:])
                                 ==-1)

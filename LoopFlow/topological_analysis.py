@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Updated on Mon 05/08/2022
+Updated on Wednesday 17/08/2022
 
 Comptutation of the topological graph from regular grid voxets of geological models 
 and associated fault topology matrix. 
@@ -10,7 +10,7 @@ Identify edges between adjacent nodes (contact on a voxel face (in the 3D case)
 
 @author: Guillaume PIROT
 """
-__version__="0.1.16"
+__version__="0.1.17"
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,7 @@ import networkx as nx
 import sys
 import os
 from datetime import datetime
+from scipy.interpolate import NearestNDInterpolator
 
 # INPUT VARIABLES
 # nd_X: regular grid ND-array of x-coordinates
@@ -630,6 +631,34 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     # reset edges index
     df_edges.sort_values(by=['id_node_src','id_node_tgt'], axis=0, ascending=True, inplace=True)
     df_edges.reset_index(drop=True, inplace=True)
+
+    # REMOVE EDGES CROSSING FAULTS 
+    if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - REMOVE EDGES CROSSING FAULTS')
+    fault_topo_nodes = np.zeros((len(df_nodes),nbfaults)).astype(int)
+    for f in range(nbfaults):
+        if verb: print('fault_names[fault_id]:',fault_names[f])
+        cur_topo_fault = nd_topo_faults[:,:,:,f]
+        cur_ix = np.where(cur_topo_fault!=0)
+        if verb: print('np.unique(cur_topo_fault):',np.unique(cur_topo_fault))
+        if np.size(cur_ix)>0:
+            # cur_interp = RegularGridInterpolator((x,y,z),cur_topo_fault,method='nearest')
+            cur_interp = NearestNDInterpolator(list(zip(nd_X[cur_ix].flatten(), nd_Y[cur_ix].flatten(), nd_Z[cur_ix].flatten())), cur_topo_fault[cur_ix].flatten())
+            # fault_topo_nodes[:,f] = cur_interp(pts).astype(int)
+            fault_topo_nodes[:,f] = cur_interp(df_nodes['X'].astype(float),df_nodes['Y'].astype(float),df_nodes['Z'].astype(float)).astype(int)
+    crossing_fault = np.sum( 1*( (fault_topo_nodes[df_edges['id_node_src'].values.astype(int),:] 
+                                 *fault_topo_nodes[df_edges['id_node_tgt'].values.astype(int),:])
+                                ==-1)
+                            , axis=1)
+    ix2drop = np.asarray(np.where( (crossing_fault>0) &
+                                   (~df_edges['type'].isin(['fault-fault','fault-formation','interform-fault','same-fault']))
+                                  )).flatten()
+    if verb: 
+        print('Summary of edges crossing faults to remove:')
+        print(df_edges.loc[ix2drop,].groupby(['type']).size())
+    df_edges.drop(ix2drop,inplace=True)
+    df_edges.reset_index(drop=True, inplace=True)
+    if verb: print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES CROSSING FAULTS REMOVED.')
+    
     if verb:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - MEMORY USAGE - END')
         print('df_nodes: ' + str(sys.getsizeof(df_nodes)/mem_factor) + ' ' + mem_unit +
@@ -638,7 +667,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
         print('df_edges: ' + str(sys.getsizeof(df_edges)/mem_factor) + ' ' + mem_unit +
               ' - '+str(len(df_edges))+' edges')
         print(df_edges.groupby(['type']).size())       
-    
+
     return df_nodes,df_edges
 
 # Memory profiling https://github.com/spyder-ide/spyder-memory-profiler 
@@ -690,8 +719,13 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BUILDING GRAPH')
     G = nx.from_pandas_edgelist(df_edges, source='id_node_src', target='id_node_tgt', edge_attr=True,create_using=nx.DiGraph())    #,create_using=nx.DiGraph()
     G.is_directed()
+    edgesid = np.unique(df_edges[['id_node_src','id_node_tgt']].values.astype(int).flatten())
+    edgeless_nodes = np.setdiff1d(df_nodes['id'].values, edgesid)
+    df_nodes2 = df_nodes.copy()
+    df_nodes2.drop(edgeless_nodes,inplace=True)
     # Iterate over df rows and set the source and target nodes' attributes for each row:
-    for index, row in df_nodes.iterrows():
+    for index, row in df_nodes2.iterrows():
+        # print('index:',str(index),' - row:',str(row))
         G.nodes[row['id']]['X'] = row['X']
         G.nodes[row['id']]['Y'] = row['Y']
         G.nodes[row['id']]['Z'] = row['Z']
@@ -712,7 +746,7 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
             df_edges.to_csv(destination+"/model-edges.csv",index=False)
     if verb==True:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - reggrid2nxGraph END')
-    return G,df_nodes,df_edges
+    return G,df_nodes,df_edges,edgeless_nodes
 
 def add_new_edges(tmpID1,tmpID2,df_edges,verb=False,suffix=""):
     tmp_ix = np.asarray(np.where((tmpID1*tmpID2)>0)).flatten()

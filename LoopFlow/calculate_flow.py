@@ -88,7 +88,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 
     if(scenario=='fast_both'):
         fault_node=1
-        geological_formation_slow=1000
+        geological_formation_slow=100
         geological_formation_fast=5
         interformation_node=5
 
@@ -96,51 +96,51 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         same_fault=5
         fault_fault=5
         interform_fault=5
-        interform_formation=1000
-        interform_interform=1000
-        same_interform=1000
+        interform_formation=100
+        interform_interform=100
+        same_interform=100
 
         fast_formation_code=fast_litho
     elif(scenario=='fast_strat_contacts'): # and slow faults
         fault_node=5.0
-        geological_formation_slow=1000
+        geological_formation_slow=100
         geological_formation_fast=5
         interformation_node=1
 
-        fault_formation=1000
-        same_fault=1000
-        fault_fault=1000
-        interform_fault=1000
-        interform_formation=1000
-        interform_interform=1000
-        same_interform=1000
+        fault_formation=100
+        same_fault=100
+        fault_fault=100
+        interform_fault=100
+        interform_formation=100
+        interform_interform=100
+        same_interform=100
 
         fast_formation_code=fast_litho
     elif(scenario=='fast_faults'): # and slow strat
-        fault_node=1
-        geological_formation_slow=1000
-        geological_formation_fast=5
-        interformation_node=5
+        fault_node=1.0
+        geological_formation_slow=5.0
+        geological_formation_fast=1.0
+        interformation_node=5.0
 
-        fault_formation=5
-        same_fault=5
-        fault_fault=5
-        interform_fault=5
-        interform_formation=1000
-        interform_interform=1000
-        same_interform=1000
+        fault_formation=1.0
+        same_fault=0.1
+        fault_fault=1.0
+        interform_fault=5.0
+        interform_formation=5.0
+        interform_interform=5.0
+        same_interform=5.0
 
-        fast_formation_code=fast_litho
+        fast_formation_code=fast_litho    
     elif(scenario=='fault_barriers_not_paths'): # and fast strat
-        fault_node=1000
-        geological_formation_slow=1000
+        fault_node=100
+        geological_formation_slow=100
         geological_formation_fast=5
         interformation_node=1
 
-        fault_formation=1000
-        same_fault=1000
-        fault_fault=1000
-        interform_fault=1000
+        fault_formation=100
+        same_fault=100
+        fault_fault=100
+        interform_fault=100
         interform_formation=5
         interform_interform=5
         same_interform=5
@@ -148,13 +148,13 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_but_paths_and_fast_strat'):
         fault_node=5
-        geological_formation_slow=1000
+        geological_formation_slow=100
         geological_formation_fast=5
         interformation_node=1
 
         fault_formation=5
-        same_fault=1000
-        fault_fault=1000
+        same_fault=100
+        fault_fault=100
         interform_fault=5
         interform_formation=5
         interform_interform=5
@@ -163,19 +163,19 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         fast_formation_code=fast_litho
     elif(scenario=="fault_intersections_fast"): # fault_intersections_fast
         fault_node=1
-        geological_formation_slow=1000
-        geological_formation_fast=5
+        geological_formation_slow=5
+        geological_formation_fast=1
         interformation_node=1
 
-        fault_formation=1000
-        same_fault=1000
-        fault_fault=5
-        interform_fault=1000
-        interform_formation=1000
-        interform_interform=1000
-        same_interform=1000
+        fault_formation=5
+        same_fault=5
+        fault_fault=1
+        interform_fault=5
+        interform_formation=5
+        interform_interform=5
+        same_interform=5
 
-        fast_formation_code=[-99]
+        fast_formation_code=['-99']
     elif(scenario=="homogeneous"): # homogeneous
         fault_node=1
         geological_formation_slow=1
@@ -190,7 +190,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         interform_interform=1
         same_interform=1
 
-        fast_formation_code=[-99]
+        fast_formation_code=['-99']
     else: # custom
         fault_node=scenario['fault_node']
         geological_formation_slow=scenario['geological_formation_slow']
@@ -270,11 +270,11 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
     else:
         G=add_side_node(G,-2,bbox2,ranges*2,target,faults_only)
     
-    for e in G.edges: #make integers to make networkx happy
-        G.edges[e]['weight']=int(G.edges[e]['weight'])
+    #for e in G.edges: #make integers to make networkx happy
+    #    G.edges[e]['weight']=int(G.edges[e]['weight'])
         
     for n in G.nodes: #overwrite a note currently used
-        G.nodes[n]['weight']=10000 
+        G.nodes[n]['weight']=1000 
 
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - WEIGHTS ASSIGNED')
     return(G,scenario)
@@ -320,8 +320,8 @@ def join_node(G,n,name,type):
         G.edges[n,nodeid]['vy']= 0.0
         G.edges[n,nodeid]['vz']= 0.0
         G.edges[n,nodeid]['length']= 0
-        G.edges[n,nodeid]['weight']= 5
-        G.edges[n,nodeid]['capacity']= 100000
+        G.edges[n,nodeid]['weight']= 1
+        G.edges[n,nodeid]['capacity']= 10000
     else:
         nodeid=-1
         G.add_edge(nodeid,n)
@@ -333,8 +333,8 @@ def join_node(G,n,name,type):
         G.edges[nodeid,n]['vy']= 0.0
         G.edges[nodeid,n]['vz']= 0.0
         G.edges[nodeid,n]['length']= 0
-        G.edges[nodeid,n]['weight']= 5
-        G.edges[nodeid,n]['capacity']= 100000
+        G.edges[nodeid,n]['weight']= 1
+        G.edges[nodeid,n]['capacity']= 10000
     return(G)
 
 def add_point_node(G,nodeid,x,y,z,ranges,faults_only):

@@ -2,7 +2,7 @@ import os
 import sys
 import setuptools
 import subprocess
-from map2loop import __version__
+from LoopFlow import __version__
 
 head, tail = os.path.split(sys.argv[0])
 

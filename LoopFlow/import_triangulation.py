@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Updated on Monday 22/08/2022
+
+Code to import triangulated surfaces for use in map2loop or LoopStructural
+
+@author: Mark Jessell
+"""
+
 import pandas as pd
 import numpy as np
 from math import degrees,atan,asin,sqrt,pow, atan2

@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Updated on Monday 22/08/2022
+
+Code to calculate Dijkstra Distance, preferred pathways and sceneray along paths based on graphs of 3D geological models
+These graphs are calculated using the topological analysis code of Guillaume Pirot
+
+@author: Mark Jessell
+"""
+
 from LoopFlow import topological_analysis as ta
 from LoopStructural.analysis._topology import calculate_fault_topology_matrix
 import numpy as np
@@ -88,32 +98,32 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 
     if(scenario=='fast_both'):
         fault_node=1
-        geological_formation_slow=100
-        geological_formation_fast=5
+        geological_formation_slow=5
+        geological_formation_fast=1
         interformation_node=5
+
+        fault_formation=1
+        same_fault=1
+        fault_fault=1
+        interform_fault=1
+        interform_formation=5
+        interform_interform=5
+        same_interform=5
+
+        fast_formation_code=fast_litho
+    elif(scenario=='fast_strat_contacts'): # and slow faults
+        fault_node=1
+        geological_formation_slow=5
+        geological_formation_fast=1
+        interformation_node=1
 
         fault_formation=5
         same_fault=5
         fault_fault=5
         interform_fault=5
-        interform_formation=100
-        interform_interform=100
-        same_interform=100
-
-        fast_formation_code=fast_litho
-    elif(scenario=='fast_strat_contacts'): # and slow faults
-        fault_node=5.0
-        geological_formation_slow=100
-        geological_formation_fast=5
-        interformation_node=1
-
-        fault_formation=100
-        same_fault=100
-        fault_fault=100
-        interform_fault=100
-        interform_formation=100
-        interform_interform=100
-        same_interform=100
+        interform_formation=5
+        interform_interform=5
+        same_interform=5
 
         fast_formation_code=fast_litho
     elif(scenario=='fast_faults'): # and slow strat
@@ -132,33 +142,33 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 
         fast_formation_code=fast_litho    
     elif(scenario=='fault_barriers_not_paths'): # and fast strat
-        fault_node=100
-        geological_formation_slow=100
-        geological_formation_fast=5
+        fault_node=1
+        geological_formation_slow=5
+        geological_formation_fast=1
         interformation_node=1
 
-        fault_formation=100
-        same_fault=100
-        fault_fault=100
-        interform_fault=100
-        interform_formation=5
-        interform_interform=5
-        same_interform=5
+        fault_formation=5
+        same_fault=5
+        fault_fault=5
+        interform_fault=5
+        interform_formation=1
+        interform_interform=1
+        same_interform=1
 
         fast_formation_code=fast_litho
     elif(scenario=='fault_barriers_but_paths_and_fast_strat'):
         fault_node=5
-        geological_formation_slow=100
-        geological_formation_fast=5
+        geological_formation_slow=5
+        geological_formation_fast=1
         interformation_node=1
 
-        fault_formation=5
-        same_fault=100
-        fault_fault=100
+        fault_formation=1
+        same_fault=5
+        fault_fault=5
         interform_fault=5
-        interform_formation=5
-        interform_interform=5
-        same_interform=5
+        interform_formation=1
+        interform_interform=1
+        same_interform=1
 
         fast_formation_code=fast_litho
     elif(scenario=="fault_intersections_fast"): # fault_intersections_fast

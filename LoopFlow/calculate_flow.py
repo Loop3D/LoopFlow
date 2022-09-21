@@ -292,7 +292,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
 def add_deep_line_node(G,nodeid,minx,maxx,minz,ranges,faults_only):
 
     range_min=minx+((maxx-minx)/2)-ranges
-    range_max=maxx+((maxx-minx)/2)+ranges
+    range_max=minx+((maxx-minx)/2)+ranges
 
 
     G.add_node(nodeid)
@@ -311,7 +311,7 @@ def add_deep_line_node(G,nodeid,minx,maxx,minz,ranges,faults_only):
 
     for n in G.nodes():
         if(n >=0):
-            if(G.nodes[n]['Z']<minz+100 and G.nodes[n]['X']<range_max and G.nodes[n]['X']>range_min  ):
+            if(G.nodes[n]['Z']<minz+ranges and G.nodes[n]['X']<range_max and G.nodes[n]['X']>range_min  ):
                 if((faults_only and G.nodes[n]['description']=='fault node') or not faults_only ):
                     G=join_node(G,n,name,'deep')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - LINE SOURCE ADDED')

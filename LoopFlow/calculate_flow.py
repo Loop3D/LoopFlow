@@ -18,7 +18,7 @@ from datetime import datetime
 from networkx.algorithms.flow import boykov_kolmogorov
 
 
-def graph_from_model(model,voxel_size,bbox2,destination):  
+def graph_from_model(model,voxel_size,bbox2,destination,verb):  
     if(not os.path.isdir(destination)):
         os.mkdir(destination)
 
@@ -68,7 +68,7 @@ def graph_from_model(model,voxel_size,bbox2,destination):
         fault_names.append("fault"+str(f)) 
     
     Graw,df_nodes_raw,df_edges_raw,edgeless_nodes = ta.reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,
-            destination,unique_edges=True,simplify=False,verb=False,csvxpt=True,edgeGeocode=True) #,destination
+            destination,unique_edges=True,simplify=False,verb=verb,csvxpt=True,edgeGeocode=True) #,destination
             
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - GRAPH CALCULATED')
 

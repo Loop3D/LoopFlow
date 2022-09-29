@@ -597,8 +597,8 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
     for index,p in enumerate(path):
         step_litho1=[]
         step_litho2=[]
-        step_litho1 = [node_lith_df.loc[path[p]]['litho1'].to_list() ]
-        step_litho2 = [node_lith_df.loc[path[p]]['litho2'].to_list() ]
+        step_litho1 = node_lith_df.loc[path[p]]['litho1'].to_list()
+        step_litho2 = node_lith_df.loc[path[p]]['litho2'].to_list()
         #step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
         #step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
         step_litho=step_litho1+step_litho2   

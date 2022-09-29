@@ -592,45 +592,15 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
                 first=False
             else:
                 sg_df=pd.concat([sg_df,a_sg_df])
-    """                
-    path_litho=[]
-    for index,p in enumerate(path):
-        step_litho=[]
-        for step in path[p]:
-            #print(index,'length',len(path[p]),step)
-            if(step!=-1):
-                step_litho.append(node_lith_df.loc[step]['litho1'])
-                step_litho.append(node_lith_df.loc[step]['litho2'])
-        if(index%10000==0):
-            print(index,len(path))
-            
-        count_litho=[]
-        for i in range(len(sg_df)):
-            count_litho.append(step_litho.count(i))
-        path_litho.append((p,count_litho))
-    """    
-    """
 
-    #slower but cleaner!
-    path_df=pd.DataFrame.from_dict(path,orient='index').fillna(-1).transpose()
-
-    path_df2=pathx_df.copy(deep=True)
-    path_df3=pathx_df.copy(deep=True)
-
-    path_df2=path_df2.applymap(lambda x: node_lith_df.loc[x].litho1) # need faster equivalent
-    path_df3=path_df3.applymap(lambda x: node_lith_df.loc[x].litho2)
-
-    path_df2=path_df2.apply(pd.Series.value_counts).fillna(0)
-    path_df3=path_df3.apply(pd.Series.value_counts).fillna(0)
-
-    path_litho_df=(path_df2.reindex_like(path_df3).fillna(0) + path_df3.fillna(0).fillna(0))
-    """    
     path_litho=[]
     for index,p in enumerate(path):
         step_litho1=[]
         step_litho2=[]
-        step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
-        step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
+        step_litho1 = [node_lith_df.loc[path[p]]['litho1'].to_list() ]
+        step_litho2 = [node_lith_df.loc[path[p]]['litho2'].to_list() ]
+        #step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
+        #step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
         step_litho=step_litho1+step_litho2   
         
         if(step_litho!= None):

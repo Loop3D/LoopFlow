@@ -50,8 +50,8 @@ def graph_from_model(model,voxel_size,bbox2,destination,verb):
 
     fault_topo_mat = calculate_fault_topology_matrix(model,xyz,scale=True)
     import pickle
-    save_pickle=False
-    if(save_pickle):
+
+    if(verb):
         with open(destination+'/xyzLitho.pickle', 'wb') as f:
             pickle.dump(xyzLitho, f)
         with open(destination+'/xyz.pickle', 'wb') as f:
@@ -218,8 +218,9 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         fast_formation_code=scenario['fast_formation_code']
         scenario='custom'
        
-        
+    
     G=Graw.to_undirected()
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - TO UNDIRECTED')
     for n in G.nodes:
         if(G.nodes[n]['description']=='fault node'):
             G.nodes[n]['weight']=fault_node
@@ -230,6 +231,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
                 G.nodes[n]['weight']=geological_formation_slow
         elif(G.nodes[n]['description']=='interformation node'):
             G.nodes[n]['weight']=5.0
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES_WEIGHTED')
     for e in G.edges:
         scale=G.edges[e]['length']/length_scale_max
         #scale=1
@@ -261,6 +263,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         elif(G.edges[e]['type']=='same-interform'):
             G.edges[e]['weight']=same_interform*scale
             G.edges[e]['capacity']=1/same_interform
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES WEIGHTED')
 
 
     if(source=='deep_line'):
@@ -443,11 +446,12 @@ def add_side_node(G,nodeid,bbox2,ranges,side,faults_only):
     return(G)
 
     
-def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,pt):
+def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,pt,verb):
     dx=dy=dz=voxel_size
     minz=bbox2.iloc[0]['lower']
                
-    nx.write_gml(G,destination+'/'+source_type+'_'+scenario+'_model.gml') 
+    if(verb):
+        nx.write_gml(G,destination+'/'+source_type+'_'+scenario+'_model.gml') 
     def_src=pd.DataFrame(index=[-1],data={'id':-1,'X':0,'Y':0,'Z':minz-1,'geocode':'source','description':'source','orthodim':0})
     df_nodes=pd.concat([df_nodes,def_src])
     source=-1
@@ -474,7 +478,8 @@ def calculate_dist(G,df_nodes,voxel_size,bbox2,source_type,scenario,destination,
     voxet_df=pd.DataFrame.from_dict(voxet,orient='index')
 
     normalise_distance(voxet_df,bbox2,voxel_size,source_type,pt[0],pt[1],pt[2])
-    voxet_df[:-2].to_csv(destination+'/'+source_type+'_'+scenario+'_path_dist.csv')
+    if(verb):
+        voxet_df[:-2].to_csv(destination+'/'+source_type+'_'+scenario+'_path_dist.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTS CALCULATED')
 
     return(voxet_df,distance,path)
@@ -527,17 +532,18 @@ def normalise_distance(voxet_df,bbox2,voxel_size,source_type,ptx,pty,ptz):
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - DISTANCE NORMALISED')
     return(voxet_df)
                     
-def calculate_paths(path,df_nodes,source_type,scenario,destination):
+def calculate_paths(path,df_nodes,source_type,scenario,destination,verb):
     from collections import Counter
     flat_list=[val for vals in path.values() for val in vals]
     node_count=Counter(flat_list)
     counts=pd.DataFrame.from_dict(node_count,orient='index').sort_index()
     df_nodes['count']=counts[0]
-    df_nodes[:-1].to_csv(destination+'/'+source_type+'_'+scenario+'_path_count.csv',index=False)
+    if(verb):
+        df_nodes[:-1].to_csv(destination+'/'+source_type+'_'+scenario+'_path_count.csv',index=False)
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - PATHS CALCULATED')
     return(df_nodes[:-1])
 
-def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
+def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination,verb):
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - START SCENERY CALC')
 
     # create dict of lithos for strat nodes and empty rows for faults
@@ -661,7 +667,8 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
 
     scenery=df_nodes.merge(path_litho_df[1:], how='outer',left_on='lkey', right_on='rkey')
 
-    scenery.to_csv(destination+'/'+source_type+'_'+scenario+'_path_scenery.csv')
+    if(verb):
+        scenery.to_csv(destination+'/'+source_type+'_'+scenario+'_path_scenery.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SCENERY CALCULATED')
 
     return(scenery)

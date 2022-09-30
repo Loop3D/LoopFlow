@@ -767,7 +767,7 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
             os.mkdir(destination)
         if verb==True:
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EXPORTING GML GRAPH')
-        nx.write_gml(G, destination+"/model-graph.gml")
+            nx.write_gml(G, destination+"/model-graph.gml")
         if (verb==True & csvxpt==True) :
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EXPORTING CSV NODES')
             df_nodes.to_csv(destination+"/model-nodes.csv",index=False)

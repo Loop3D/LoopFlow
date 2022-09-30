@@ -271,7 +271,7 @@ def assign_weights(G,scenario,source,target,fast_litho,faults_only,bbox2,px,py,p
     if(source=='deep_line'):
         G=add_deep_line_node(G,-1,minx,maxx,minz,ranges*2,faults_only)
     elif(source=='point'):
-        add_point_node(G,-1,px,py,pz,ranges*2,faults_only)
+        G=add_point_node(G,-1,px,py,pz,ranges*2,faults_only)
     else:
         G=add_side_node(G,-1,bbox2,ranges*2,source,faults_only)
 
@@ -279,7 +279,7 @@ def assign_weights(G,scenario,source,target,fast_litho,faults_only,bbox2,px,py,p
     if(target=='deep_line'):
         G=add_deep_line_node(G,-2,minx,maxx,minz,ranges*2,faults_only)
     elif(target=='point'):
-        add_point_node(G,-2,px,py,pz,ranges*2,faults_only)
+        G=add_point_node(G,-2,px,py,pz,ranges*2,faults_only)
     elif(target=='none'):
         pass
     else:

@@ -538,6 +538,7 @@ def calculate_paths(path,df_nodes,source_type,scenario,destination):
     return(df_nodes[:-1])
 
 def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
+    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - START SCENERY CALC')
 
     # create dict of lithos for strat nodes and empty rows for faults
     node_lith={}
@@ -576,8 +577,8 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
             node_lith[nodeid]={'type':'fault','label':int(nodeid),'litho1':int(split_geocode[2]),'litho2':int(split_geocode[4])}
 
     node_lith_df=pd.DataFrame.from_dict(node_lith,orient='index')
-         
-
+    node_lith_df['litho2'] = node_lith_df['litho2'].astype('str')
+    
     first=True
     index=0
 
@@ -592,15 +593,50 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
                 first=False
             else:
                 sg_df=pd.concat([sg_df,a_sg_df])
+                
+    for i in node_lith_df[node_lith_df['litho2'].str.contains('fault')]['litho2'].unique():
+        node_lith_df.loc[node_lith_df['litho2']==i,:] = -10      
+        
 
+    node_lith_df['litho2'] = node_lith_df['litho2'].astype('int')
+    node_lith_df.loc[node_lith_df['litho1']==0,:] =len(sg_df)
+    node_lith_df.loc[node_lith_df['litho2']==0,:] =len(sg_df)
+
+    from scipy.sparse import coo_matrix
+    import numpy as np
+    col = []
+    data = []
+    row = []
+    for p in path:
+        c = path[p]
+        r = [p]*len(c)
+        col.extend(c)
+        row.extend(r)
+    l1 = node_lith_df.loc[col]['litho1'].to_list() 
+    l2 = np.array(node_lith_df.loc[col]['litho2'].to_list(),dtype=int)
+    mat1 = coo_matrix((l1,(np.array(col)+1,np.array(row)+1)))
+    mat2 = coo_matrix((l2,(np.array(col)+1,np.array(row)+1)))
+    diffs = []
+    for i in range(1,6):
+        diffs.append((mat1 == i).tocsr().getnnz(axis=0)+(mat2 == i).tocsr().getnnz(axis=0))
+    path_litho = np.vstack(diffs).T                
+
+    columns=[]
+    columns.append(sg_df.iloc[-1]['unit'])
+    for ind,strat in sg_df[:-1].iterrows():
+        columns.append(strat['unit'])
+        
+    path_litho_df=pd.DataFrame(path_litho,columns=columns)
+    path_litho_df['i']=path_litho_df.index-1
+    path_litho_df=path_litho_df.set_index('i')                
+    
+    """
     path_litho=[]
     for index,p in enumerate(path):
         step_litho1=[]
         step_litho2=[]
-        step_litho1 = node_lith_df.loc[path[p]]['litho1'].to_list()
-        step_litho2 = node_lith_df.loc[path[p]]['litho2'].to_list()
-        #step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
-        #step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
+        step_litho1 = [node_lith_df.loc[step]['litho1'] for step in path[p]] 
+        step_litho2 = [node_lith_df.loc[step]['litho2'] for step in path[p]] 
         step_litho=step_litho1+step_litho2   
         
         if(step_litho!= None):
@@ -618,10 +654,12 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination):
     path_litho_df = pd.DataFrame()
     path_litho_df = pd.DataFrame(path_litho_temp['b'].to_list(), columns=columns)
     path_litho_df.index=path_litho_temp['a']
+    """
+    
     df_nodes['lkey']=df_nodes.index
     path_litho_df['rkey']=path_litho_df.index
 
-    scenery=df_nodes.merge(path_litho_df, how='outer',left_on='lkey', right_on='rkey')
+    scenery=df_nodes.merge(path_litho_df[1:], how='outer',left_on='lkey', right_on='rkey')
 
     scenery.to_csv(destination+'/'+source_type+'_'+scenario+'_path_scenery.csv')
     print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - SCENERY CALCULATED')

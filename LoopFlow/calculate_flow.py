@@ -625,7 +625,7 @@ def calculate_scenery(G,model,df_nodes,path,source_type,scenario,destination,ver
     mat1 = coo_matrix((l1,(np.array(col)+1,np.array(row)+1)))
     mat2 = coo_matrix((l2,(np.array(col)+1,np.array(row)+1)))
     diffs = []
-    for i in range(1,6):
+    for i in range(1,len(sg_df)+1):
         diffs.append((mat1 == i).tocsr().getnnz(axis=0)+(mat2 == i).tocsr().getnnz(axis=0))
     path_litho = np.vstack(diffs).T                
 

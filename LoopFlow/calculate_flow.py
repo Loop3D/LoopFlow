@@ -87,7 +87,7 @@ def randomise_weights(G,mu,sigma):
             G.edges[e]['capacity'] = G.edges[e]['capacity'] / factor
     return(G)
 
-def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
+def assign_weights(G,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -218,9 +218,11 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         fast_formation_code=scenario['fast_formation_code']
         scenario='custom'
        
+    #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BEFORE UNDIRECTED')
     
-    G=Graw.to_undirected()
-    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - TO UNDIRECTED')
+    #G=Graw.to_undirected()
+    
+    #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - TO UNDIRECTED')
     for n in G.nodes:
         if(G.nodes[n]['description']=='fault node'):
             G.nodes[n]['weight']=fault_node
@@ -231,7 +233,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
                 G.nodes[n]['weight']=geological_formation_slow
         elif(G.nodes[n]['description']=='interformation node'):
             G.nodes[n]['weight']=5.0
-    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES_WEIGHTED')
+    #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - NODES_WEIGHTED')
     for e in G.edges:
         scale=G.edges[e]['length']/length_scale_max
         #scale=1
@@ -263,7 +265,7 @@ def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,p
         elif(G.edges[e]['type']=='same-interform'):
             G.edges[e]['weight']=same_interform*scale
             G.edges[e]['capacity']=1/same_interform
-    print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES WEIGHTED')
+    #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EDGES WEIGHTED')
 
 
     if(source=='deep_line'):

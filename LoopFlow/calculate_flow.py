@@ -87,7 +87,7 @@ def randomise_weights(G,mu,sigma):
             G.edges[e]['capacity'] = G.edges[e]['capacity'] / factor
     return(G)
 
-def assign_weights(G,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
+def assign_weights(Graw,scenario,source,target,fast_litho,faults_only,bbox2,px,py,pz,ranges,length_scale_max):
 
     maxz=bbox2.iloc[0]['upper']
     minz=bbox2.iloc[0]['lower']
@@ -221,7 +221,7 @@ def assign_weights(G,scenario,source,target,fast_litho,faults_only,bbox2,px,py,p
     #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BEFORE UNDIRECTED')
     
     #G=Graw.to_undirected()
-    
+    G=Graw.copy()
     #print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - TO UNDIRECTED')
     for n in G.nodes:
         if(G.nodes[n]['description']=='fault node'):

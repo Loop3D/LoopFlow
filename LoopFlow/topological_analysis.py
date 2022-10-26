@@ -38,6 +38,7 @@ class GridProp:
 
 class FaultProp:
     def __init__(self,name,proptype,value):
+        # for a given fault, as many entries as GridProp cardinality and in the same order
         self.name = name  # name of the property - should macth those of GridProp
         self.proptype = proptype  # type of property : 'constant' or 'mfactor' (multiplication factor)
         self.value = value  # single value
@@ -75,7 +76,7 @@ mem_factor = 1E6
 # df_edges: graph edges described as a dataframe
 # G: graph built with networkx  
 
-def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,propfields=[],unique_edges=True,simplify=True,verb=False):
+def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,propfields=[],faultprop=[],unique_edges=True,simplify=True,verb=False):
     print('Running topological_analysis version '+ __version__)
     dim = nd_lithocodes.shape
     ndim=len(dim)
@@ -153,6 +154,8 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
         # AND ALSO FORBID INTRAFORMATION EDGE
         # Fault Nodes + fault-formation edges
         for f in range(nbfaults):
+            if verb==True:
+                print(fault_names[f])
             cur_topo_flt = nd_topo_faults.take(indices=f, axis=ndim)
             cur_flt_name = fault_names[f]
             tmpF = ((cur_topo_flt.take(indices=range(1, dim[d]), axis=d) * cur_topo_flt.take(indices=range(0, dim[d]-1), axis=d))==-1 ).flatten()
@@ -165,11 +168,24 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
                 df_tmp['geocode'] = cur_flt_name
                 df_tmp['description'] = 'fault node'
                 df_tmp['orthodim'] = d
-                # AGGREGATE PROPRTY FOR THE NEW NODE
+                # AGGREGATE PROPERTY FOR THE NEW NODE
                 for p in range(nGridProp):
-                    tmpval1 = df_nodes.loc[tmpID1[ixfn],propfields[p].name].values
-                    tmpval2 = df_nodes.loc[tmpID2[ixfn],propfields[p].name].values
-                    df_tmp[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
+                    if verb==True:
+                        print('property '+str(p))
+                    # if faultprop[f][p].name != propfields[p].name:
+                    #     print('******************************************************************')
+                    #     print('ERROR - Fault Properties name or ordering incoherent with GridProp')
+                    #     print('******************************************************************')
+                    if faultprop[f][p].proptype == 'constant':
+                        df_tmp[propfields[p].name] = faultprop[f][p].value
+                    elif faultprop[f][p].proptype == 'mfactor':
+                        tmpval1 = df_nodes.loc[tmpID1[ixfn],propfields[p].name].values * faultprop[f][p].value
+                        tmpval2 = df_nodes.loc[tmpID2[ixfn],propfields[p].name].values * faultprop[f][p].value
+                        df_tmp[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
+                    else:
+                        tmpval1 = df_nodes.loc[tmpID1[ixfn],propfields[p].name].values
+                        tmpval2 = df_nodes.loc[tmpID2[ixfn],propfields[p].name].values
+                        df_tmp[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
                 # CONCATENATE NEW NODES
                 cur_node_id = cur_node_id+len(ixfn)
                 df_nodes= pd.concat([df_nodes,df_tmp]) 
@@ -216,7 +232,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
             df_tmp['orthodim'] = d
             df_tmp['interform_geocode_a'] = geocode_pair[:,0]
             df_tmp['interform_geocode_b'] = geocode_pair[:,1] 
-            # AGGREGATE PROPRTY FOR THE NEW NODE
+            # AGGREGATE PROPERTY FOR THE NEW NODE
             for p in range(nGridProp):
                 tmpval1 = df_nodes.loc[tmpID1[ixin],propfields[p].name].values
                 tmpval2 = df_nodes.loc[tmpID2[ixin],propfields[p].name].values
@@ -749,7 +765,7 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 # Memory profiling https://github.com/spyder-ide/spyder-memory-profiler 
 # Add a @profile decorator to the functions that you wish to profile then Ctrl+Shift+F10 to run the profiler on the current script, or go to Run > Profile memory line by line.
 # @profile
-def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",unique_edges=True,simplify=True,verb=False,csvxpt=False,edgeGeocode=True):
+def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,destination="",propfields=[],faultprop=[],unique_edges=True,simplify=True,verb=False,csvxpt=False,edgeGeocode=True):
     """"Conversion of a regular grid voxet into a graph
 
     Parameters
@@ -788,7 +804,7 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
     df_edges : DataFrame
         pandas DataFrame listing the graph edges
     """
-    df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=unique_edges,simplify=simplify,verb=verb)
+    df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,propfields=propfields,faultprop=faultprop,unique_edges=unique_edges,simplify=simplify,verb=verb)
     # add geocodes
     if edgeGeocode: add_edges_geocodes(df_edges,df_nodes)
     if verb==True:

@@ -30,6 +30,28 @@ from scipy.interpolate import RegularGridInterpolator, NearestNDInterpolator
 # destination: location and filename without extension to export a GML graph, and dataframes of nodes and edges
 # verb=False: verbose option for memory analysis or debugging
 
+class GridProp:
+    def __init__(self,name,agregtype,values):
+        self.name = name  # name of the property
+        self.agregtype = agregtype  # type of aggregation: 'arithmetic', 'geometric' or 'harmonic'
+        self.values = values  # array of size similar to nd_lithocodes
+
+class FaultProp:
+    def __init__(self,name,proptype,value):
+        self.name = name  # name of the property - should macth those of GridProp
+        self.proptype = proptype  # type of property : 'constant' or 'mfactor' (multiplication factor)
+        self.value = value  # single value
+
+def propaggreg(val1,val2,agregtype):
+    if agregtype == 'arithmetic':
+        aggregatedval = (val1+val2)/2
+    if agregtype == 'geometric':
+        aggregatedval = (val1*val2)**(1/2)
+    if agregtype == 'harmonic':
+        aggregatedval = 2/(1/val1+1/val2)
+    return aggregatedval
+    
+
 # INNER VARIABLE TO CHECK MEMORY USAGE WHEN VERB==TRUE
 mem_unit = 'MB'
 mem_factor = 1E6
@@ -53,10 +75,11 @@ mem_factor = 1E6
 # df_edges: graph edges described as a dataframe
 # G: graph built with networkx  
 
-def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,unique_edges=True,simplify=True,verb=False):
+def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,propfields=[],unique_edges=True,simplify=True,verb=False):
     print('Running topological_analysis version '+ __version__)
     dim = nd_lithocodes.shape
     ndim=len(dim)
+    nGridProp = len(propfields)
     nbfaults = len(fault_names)
     dim0 = (dim[0]-1,dim[1],dim[2])
     dim1 = (dim[0],dim[1]-1,dim[2])
@@ -91,6 +114,8 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     df_nodes = pd.DataFrame({'id':flat_voxelid[ix_sorted],'X':nd_X.flatten()[ix_sorted],'Y':nd_Y.flatten()[ix_sorted],'Z':nd_Z.flatten()[ix_sorted],'geocode':nd_lithocodes.flatten()[ix_sorted]})
     df_nodes['description']='geological formation'
     df_nodes['orthodim']=-1 #np.nan
+    for p in range(nGridProp):
+        df_nodes[propfields[p].name] = propfields[p].values.flatten()[ix_sorted]
     
     # INITIALIZE EMPTY EDGE DATAFRAME
     df_edges = pd.DataFrame(columns=['id_node_src','id_node_tgt','type','label']) #,'geocode_src','geocode_tgt'
@@ -140,6 +165,12 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
                 df_tmp['geocode'] = cur_flt_name
                 df_tmp['description'] = 'fault node'
                 df_tmp['orthodim'] = d
+                # AGGREGATE PROPRTY FOR THE NEW NODE
+                for p in range(nGridProp):
+                    tmpval1 = df_nodes.loc[tmpID1[ixfn],propfields[p].name].values
+                    tmpval2 = df_nodes.loc[tmpID2[ixfn],propfields[p].name].values
+                    df_tmp[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
+                # CONCATENATE NEW NODES
                 cur_node_id = cur_node_id+len(ixfn)
                 df_nodes= pd.concat([df_nodes,df_tmp]) 
                 df_nodes.reset_index(drop=True, inplace=True)
@@ -185,6 +216,12 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
             df_tmp['orthodim'] = d
             df_tmp['interform_geocode_a'] = geocode_pair[:,0]
             df_tmp['interform_geocode_b'] = geocode_pair[:,1] 
+            # AGGREGATE PROPRTY FOR THE NEW NODE
+            for p in range(nGridProp):
+                tmpval1 = df_nodes.loc[tmpID1[ixin],propfields[p].name].values
+                tmpval2 = df_nodes.loc[tmpID2[ixin],propfields[p].name].values
+                df_tmp[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
+            # CONCATENATE NEW NODES
             cur_node_id = cur_node_id+len(ixin)
             df_nodes= pd.concat([df_nodes,df_tmp])
             df_nodes.reset_index(drop=True, inplace=True)
@@ -530,6 +567,16 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
     df_edges['length'] = np.sqrt((df_edges['vx'].values)**2 +
                                   (df_edges['vy'].values)**2 +
                                   (df_edges['vz'].values)**2 )
+
+    # ADD AGGREGATED PROPERTIES TO EDGES
+    id_node_src = df_edges['id_node_src'].values.astype(int)
+    id_node_tgt = df_edges['id_node_tgt'].values.astype(int)
+    for p in range(nGridProp):
+        tmpval1 = df_nodes.loc[id_node_src,propfields[p].name].values
+        tmpval2 = df_nodes.loc[id_node_tgt,propfields[p].name].values
+        df_edges[propfields[p].name] = propaggreg(tmpval1,tmpval2,propfields[p].agregtype)
+        
+
 
     if simplify==True:
         # Simplify geol feature connections

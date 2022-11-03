@@ -10,7 +10,7 @@ Identify edges between adjacent nodes (contact on a voxel face (in the 3D case)
 
 @author: Guillaume PIROT
 """
-__version__="0.1.18"
+__version__="0.1.19"
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ import networkx as nx
 import sys
 import os
 from datetime import datetime
-from scipy.interpolate import RegularGridInterpolator, NearestNDInterpolator
+from scipy.interpolate import RegularGridInterpolator
 
 # INPUT VARIABLES
 # nd_X: regular grid ND-array of x-coordinates
@@ -762,6 +762,24 @@ def reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_nam
 
     return df_nodes,df_edges
 
+def create_nx_graph_from_df(df_nodes,df_edges,node_properties,edges_properties,verb=False):
+    if verb==True:
+        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - FEED GRAPH EDGES')
+    G = nx.from_pandas_edgelist(df_edges, source=edges_properties[0], target=edges_properties[1], edge_attr=edges_properties[2:],create_using=nx.DiGraph())    #,create_using=nx.DiGraph()
+    if verb==True: print("G directed: "+str(G.is_directed()))
+    edgesid = np.unique(df_edges[[edges_properties[0],edges_properties[1]]].values.astype(int).flatten())
+    edgeless_nodes = np.setdiff1d(df_nodes[node_properties[0]].values, edgesid)
+    df_nodes2 = df_nodes.copy()
+    df_nodes2.drop(edgeless_nodes,inplace=True)
+    if verb==True:
+        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - FEED GRAPH VERTICES')
+    # Iterate over df rows and set the source and target nodes' attributes for each row:
+    for index, row in df_nodes2.iterrows():
+        for k in range(len(node_properties)-1):
+            G.nodes[row[node_properties[0]]][node_properties[k+1]] = row[node_properties[k+1]]
+    return G,edgeless_nodes
+
+
 # Memory profiling https://github.com/spyder-ide/spyder-memory-profiler 
 # Add a @profile decorator to the functions that you wish to profile then Ctrl+Shift+F10 to run the profiler on the current script, or go to Run > Profile memory line by line.
 # @profile
@@ -805,25 +823,29 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         pandas DataFrame listing the graph edges
     """
     df_nodes,df_edges = reggrid_topology_graph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,propfields=propfields,faultprop=faultprop,unique_edges=unique_edges,simplify=simplify,verb=verb)
+    node_properties = ['id','X','Y','Z','geocode','description','orthodim'] # TODO
+    edges_properties = ['id_node_src','id_node_tgt', 'type', 'label', 'vx', 'vy', 'vz', 'length'] # TODO
     # add geocodes
     if edgeGeocode: add_edges_geocodes(df_edges,df_nodes)
     if verb==True:
         print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - BUILDING GRAPH')
-    G = nx.from_pandas_edgelist(df_edges, source='id_node_src', target='id_node_tgt', edge_attr=True,create_using=nx.DiGraph())    #,create_using=nx.DiGraph()
-    G.is_directed()
-    edgesid = np.unique(df_edges[['id_node_src','id_node_tgt']].values.astype(int).flatten())
-    edgeless_nodes = np.setdiff1d(df_nodes['id'].values, edgesid)
-    df_nodes2 = df_nodes.copy()
-    df_nodes2.drop(edgeless_nodes,inplace=True)
-    # Iterate over df rows and set the source and target nodes' attributes for each row:
-    for index, row in df_nodes2.iterrows():
-        # print('index:',str(index),' - row:',str(row))
-        G.nodes[row['id']]['X'] = row['X']
-        G.nodes[row['id']]['Y'] = row['Y']
-        G.nodes[row['id']]['Z'] = row['Z']
-        G.nodes[row['id']]['geocode'] = row['geocode']
-        G.nodes[row['id']]['description'] = row['description']
-        G.nodes[row['id']]['orthodim'] = row['orthodim']
+    G,edgeless_nodes = create_nx_graph_from_df(df_nodes,df_edges,node_properties,edges_properties,verb=verb)
+    # G = nx.from_pandas_edgelist(df_edges, source='id_node_src', target='id_node_tgt', edge_attr=True,create_using=nx.DiGraph())    #,create_using=nx.DiGraph()
+    # G.is_directed()
+    # edgesid = np.unique(df_edges[['id_node_src','id_node_tgt']].values.astype(int).flatten())
+    # edgeless_nodes = np.setdiff1d(df_nodes['id'].values, edgesid)
+    # df_nodes2 = df_nodes.copy()
+    # df_nodes2.drop(edgeless_nodes,inplace=True)
+    # # Iterate over df rows and set the source and target nodes' attributes for each row:
+    # for index, row in df_nodes2.iterrows():
+    #     # print('index:',str(index),' - row:',str(row))
+    #     G.nodes[row['id']]['X'] = row['X']
+    #     G.nodes[row['id']]['Y'] = row['Y']
+    #     G.nodes[row['id']]['Z'] = row['Z']
+    #     G.nodes[row['id']]['geocode'] = row['geocode']
+    #     G.nodes[row['id']]['description'] = row['description']
+    #     G.nodes[row['id']]['orthodim'] = row['orthodim']
+    # Write outputs
     # Write outputs
     if ((isinstance(destination, str)) & (destination!="")):
         if os.path.isdir(destination)==False:
@@ -831,6 +853,7 @@ def reggrid2nxGraph(nd_X,nd_Y,nd_Z,nd_lithocodes,nd_topo_faults,fault_names,dest
         if verb==True:
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EXPORTING GML GRAPH')
             nx.write_gml(G, destination+"/model-graph.gml")
+        print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - GML EXPORT DONE')
         if (verb==True & csvxpt==True) :
             print((datetime.now()).strftime('%d-%b-%Y (%H:%M:%S)')+' - EXPORTING CSV NODES')
             df_nodes.to_csv(destination+"/model-nodes.csv",index=False)
